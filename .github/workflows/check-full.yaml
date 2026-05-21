@@ -26,12 +26,16 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_FORCE_SUGGESTS_: false
       R_LIBS_USER: ${{ github.workspace }}/.R/library
-      PKG_CPPFLAGS: ${{ runner.os == 'macOS' && '-I/opt/homebrew/include -I/opt/homebrew/opt/gettext/include' || '' }}
-      PKG_LIBS: ${{ runner.os == 'macOS' && '-L/opt/homebrew/lib -L/opt/homebrew/opt/gettext/lib' || '' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set macOS-specific R compile flags
+        if: runner.os == 'macOS'
+        run: |
+          echo "PKG_CPPFLAGS=-I/opt/homebrew/include -I/opt/homebrew/opt/gettext/include" >> $GITHUB_ENV
+          echo "PKG_LIBS=-L/opt/homebrew/lib -L/opt/homebrew/opt/gettext/lib" >> $GITHUB_ENV
 
       - name: Install system dependencies (Ubuntu)
         if: runner.os == 'Linux'
