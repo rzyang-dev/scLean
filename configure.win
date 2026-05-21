@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# scLean Windows configure script
+# Detects HDF5 via Rhdf5lib and generates src/Makevars.win
+
+HDF5_CXX_LIBS=`${R_HOME}/bin/Rscript -e "cat(Rhdf5lib::pkgconfig('PKG_CXX_LIBS'))" 2>/dev/null`
+HDF5_C_LIBS=`${R_HOME}/bin/Rscript -e "cat(Rhdf5lib::pkgconfig('PKG_C_LIBS'))" 2>/dev/null`
+
+# Check for OpenMP (gcc-style, available in Rtools)
+OPENMP_CXXFLAGS=""
+OPENMP_LIBS=""
+if echo '#include <omp.h>' | ${CXX} ${CXXFLAGS} -fopenmp -x c++ -c - -o /dev/null 2>/dev/null; then
+    OPENMP_CXXFLAGS='$(SHLIB_OPENMP_CXXFLAGS)'
+    OPENMP_LIBS='$(SHLIB_OPENMP_CXXLIBS)'
+fi
+
+# Find all .cpp files in subdirectories (R only auto-compiles src/*.cpp)
+SUBDIR_SOURCES=`find src -mindepth 2 -name '*.cpp' 2>/dev/null`
+SUBDIR_OBJECTS=`echo "$SUBDIR_SOURCES" | sed 's|^src/||; s|\.cpp$|.o|' | tr '\n' ' '`
+TOP_OBJECTS="rcpp_exports.o RcppExports.o"
+ALL_OBJECTS="${TOP_OBJECTS} ${SUBDIR_OBJECTS}"
+
+cat > src/Makevars.win << EOF
+PKG_CXXFLAGS = ${OPENMP_CXXFLAGS}
+PKG_CPPFLAGS = -I.
+PKG_LIBS = ${HDF5_CXX_LIBS} ${HDF5_C_LIBS} ${OPENMP_LIBS} -lz
+OBJECTS = ${ALL_OBJECTS}
+EOF
+
+echo "scLean configure.win: HDF5 flags detected"
+echo "  PKG_LIBS: ${HDF5_CXX_LIBS} ${HDF5_C_LIBS}"
+echo "  OpenMP:   ${OPENMP_CXXFLAGS:-disabled}"

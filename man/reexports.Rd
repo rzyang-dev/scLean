@@ -11,6 +11,7 @@
 \alias{FindClusters}
 \alias{FindMarkers}
 \alias{FindAllMarkers}
+\alias{VariableFeatures}
 \title{Objects exported from other packages}
 \keyword{internal}
 \description{
@@ -19,5 +20,7 @@ below to see their documentation.
 
 \describe{
   \item{Seurat}{\code{\link[Seurat:FindAllMarkers]{FindAllMarkers()}}, \code{\link[Seurat:FindClusters]{FindClusters()}}, \code{\link[Seurat:FindMarkers]{FindMarkers()}}, \code{\link[Seurat:FindNeighbors]{FindNeighbors()}}, \code{\link[Seurat:FindVariableFeatures]{FindVariableFeatures()}}, \code{\link[Seurat:NormalizeData]{NormalizeData()}}, \code{\link[Seurat:RunPCA]{RunPCA()}}, \code{\link[Seurat:ScaleData]{ScaleData()}}}
+
+  \item{SeuratObject}{\code{\link[SeuratObject:VariableFeatures]{VariableFeatures()}}}
 }}
 

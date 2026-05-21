@@ -211,7 +211,8 @@ HDF5CSCMatrix::HDF5CSCMatrix(HDF5File* file, const std::string& group_path,
 
     // Write shape attribute
     int64 shape[2] = {n_rows, n_cols};
-    hid_t space = H5Screate_simple(1, (hsize_t[]){2}, nullptr);
+    hsize_t shape_dims[1] = {2};
+    hid_t space = H5Screate_simple(1, shape_dims, nullptr);
     hid_t d_shape = H5Dcreate2(fid, full_path("shape").c_str(), H5T_NATIVE_INT64,
                                 space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     check_write(H5Dwrite(d_shape, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, shape),

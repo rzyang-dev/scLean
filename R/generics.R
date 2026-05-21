@@ -33,3 +33,7 @@ Seurat::FindMarkers
 #' @importFrom Seurat FindAllMarkers
 #' @export
 Seurat::FindAllMarkers
+
+#' @importFrom SeuratObject VariableFeatures
+#' @export
+SeuratObject::VariableFeatures
