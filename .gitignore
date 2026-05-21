@@ -18,7 +18,6 @@
 scLean.Rcheck/
 *.tar.gz
 src/Makevars
-src/Makevars.win
 src/symbols.rds
 src/scLean.so
 
