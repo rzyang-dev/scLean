@@ -255,10 +255,11 @@ void HDF5SparseWriter::finalize() {
         if (H5Dset_extent(dset_indptr_, &expected_indptr) < 0)
             throw std::runtime_error("Failed to extend indptr dataset to final size");
         int64 final_nnz = total_written_;
+        hsize_t one_dims[1] = {1};
         hsize_t last_pos[1] = {static_cast<hsize_t>(n_cols_)};
-        hid_t ms = H5Screate_simple(1, (hsize_t[]){1}, nullptr);
+        hid_t ms = H5Screate_simple(1, one_dims, nullptr);
         hid_t fs = H5Dget_space(dset_indptr_);
-        H5Sselect_hyperslab(fs, H5S_SELECT_SET, last_pos, nullptr, (hsize_t[]){1}, nullptr);
+        H5Sselect_hyperslab(fs, H5S_SELECT_SET, last_pos, nullptr, one_dims, nullptr);
         check_write(H5Dwrite(dset_indptr_, H5T_NATIVE_INT64, ms, fs, H5P_DEFAULT, &final_nnz),
                     (group_path_ + "/indptr").c_str());
         H5Sclose(fs); H5Sclose(ms);

@@ -26,6 +26,8 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_FORCE_SUGGESTS_: false
       R_LIBS_USER: ${{ github.workspace }}/.R/library
+      PKG_CPPFLAGS: ${{ runner.os == 'macOS' && '-I/opt/homebrew/include -I/opt/homebrew/opt/gettext/include' || '' }}
+      PKG_LIBS: ${{ runner.os == 'macOS' && '-L/opt/homebrew/lib -L/opt/homebrew/opt/gettext/lib' || '' }}
 
     steps:
       - name: Checkout repository

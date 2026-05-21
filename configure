@@ -41,13 +41,6 @@ PKG_LIBS = ${HDF5_CXX_LIBS} ${OPENMP_LIBS} ${EXTRA_LIBS} -lz
 OBJECTS = ${ALL_OBJECTS}
 EOF
 
-# Write Makevars.win (minimal, no OpenMP)
-cat > src/Makevars.win << EOF
-PKG_CXXFLAGS = -I. -I${HDF5_INCLUDE}
-PKG_LIBS = ${HDF5_CXX_LIBS} ${EXTRA_LIBS} -lz
-OBJECTS = ${ALL_OBJECTS}
-EOF
-
 echo "scLean configure: HDF5 flags detected"
 echo "  HDF5 include: ${HDF5_INCLUDE}"
 echo "  CXX_LIBS:     ${HDF5_CXX_LIBS}"

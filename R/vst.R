@@ -10,6 +10,7 @@
 #' @param ...  Additional arguments
 #' @return Seurat object with variable features stored in HDF5 and
 #'   registered via \code{VariableFeatures()}
+#' @importFrom SeuratObject VariableFeatures
 #' @examples
 #' \donttest{
 #' counts <- Matrix::rsparsematrix(200, 100, density = 0.15,

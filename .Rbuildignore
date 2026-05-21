@@ -4,6 +4,8 @@
 ^\.gitignore$
 ^\.Rbuildignore$
 ^\.github$
+^\.tmp$
+^\.job-logs$
 
 ^src/.*\.o$
 ^src/.*\.so$

@@ -12,6 +12,7 @@
 #include <mach/mach.h>
 #elif defined(_WIN32)
 #include <windows.h>
+#include <psapi.h>
 #else
 #include <unistd.h>
 #include <sys/resource.h>

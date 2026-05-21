@@ -1,2 +1,3 @@
 #!/bin/sh
-rm -f src/Makevars src/Makevars.win
+# Only remove auto-generated Makevars. Makevars.win is hand-maintained for Windows.
+rm -f src/Makevars
