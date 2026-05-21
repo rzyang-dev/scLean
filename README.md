@@ -114,8 +114,7 @@ for early warning of resource constraints.
 ## Benchmarks
 
 The table below compares scLean against standard Seurat on a synthetic dataset
-(20,000 genes x 50,000 cells, LogNormalize + PCA + clustering pipeline) run on a
-2019 MacBook Pro (8 GB RAM). Actual results vary by hardware, data sparsity, and
+(20,000 genes x 50,000 cells, LogNormalize + PCA + clustering pipeline) run on a MacBook neo (8 GB RAM). Actual results vary by hardware, data sparsity, and
 chunk configuration.
 
 | Step | Standard Seurat | scLean (auto chunk) | scLean (chunk=5000) |

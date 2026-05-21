@@ -49,4 +49,5 @@ ehthumbs.db
 
 # internal
 .claude/
+tmp/
 cran-comments.md

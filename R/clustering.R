@@ -23,7 +23,7 @@
 #' obj <- RunPCA(obj, npcs = 10)
 #' obj <- FindNeighbors(obj, dims = 1:10)
 #' obj <- FindClusters(obj, resolution = 0.5, algorithm = "leiden")
-#' table(Idents(obj))
+#' table(SeuratObject::Idents(obj))
 #' }
 #' @seealso \code{\link{FindNeighbors.Seurat}}, \code{\link{FindMarkers.Seurat}}
 #' @export

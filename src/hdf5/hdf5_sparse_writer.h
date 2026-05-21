@@ -2,7 +2,7 @@
 #define SCLEAN_HDF5_SPARSE_WRITER_H
 
 #include "hdf5_file.h"
-#include "sclean_types.h"
+#include "scLean_types.h"
 #include <string>
 #include <vector>
 

@@ -5,7 +5,7 @@
 #include <functional>
 #include <cstdint>
 #include <Rcpp.h>
-#include "../sclean_types.h"
+#include "../scLean_types.h"
 
 namespace sclean {
 

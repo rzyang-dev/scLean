@@ -5,7 +5,7 @@
 #include <vector>
 #include <cstdio>
 #include <zlib.h>
-#include "sclean_types.h"
+#include "scLean_types.h"
 
 namespace sclean {
 

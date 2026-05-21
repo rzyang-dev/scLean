@@ -1,0 +1,21 @@
+PKG_CPPFLAGS = -I. @HDF5_CXXFLAGS@ @OPENMP_CXXFLAGS@
+PKG_LIBS = @HDF5_LIBS@ @OPENMP_LIBS@
+
+SOURCES_CPP = \
+	hdf5/hdf5_csc_matrix.cpp \
+	hdf5/hdf5_dense_matrix.cpp \
+	hdf5/hdf5_file.cpp \
+	hdf5/hdf5_file_matrix.cpp \
+	hdf5/hdf5_sparse_writer.cpp \
+	integration/integration_operator.cpp \
+	io/mtx_reader.cpp \
+	markers/marker_operator.cpp \
+	neighbors/cluster_operator.cpp \
+	neighbors/neighbor_operator.cpp \
+	normalize/normalize_operator.cpp \
+	normalize/vst_operator.cpp \
+	pca/pca_operator.cpp \
+	scale/scale_operator.cpp \
+	utils/chunk_scheduler.cpp
+
+OBJECTS = rcpp_exports.o RcppExports.o $(SOURCES_CPP:.cpp=.o)

@@ -1,7 +1,7 @@
 #ifndef SCLEAN_RESOURCE_MONITOR_H
 #define SCLEAN_RESOURCE_MONITOR_H
 
-#include "sclean_types.h"
+#include "scLean_types.h"
 #include "utils/chunk_scheduler.h"  // for Bottleneck enum
 #include <cstdint>
 #include <algorithm>

@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 #include <hdf5.h>
-#include "sclean_types.h"
+#include "scLean_types.h"
 #include "utils/chunk_scheduler.h"
 
 namespace sclean {

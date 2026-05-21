@@ -7,7 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
-#include "sclean_types.h"
+#include "scLean_types.h"
 
 namespace sclean {
 
