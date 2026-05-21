@@ -1,0 +1,12 @@
+citHeader("To cite scLean in publications use:")
+
+bibentry(
+  bibtype = "Manual",
+  title   = "scLean: Memory-Efficient Single-Cell RNA-seq Analysis",
+  author  = "rzyang-dev",
+  year    = "2026",
+  note    = paste("R package version", utils::packageVersion("scLean")),
+  url     = "https://github.com/rzyang-dev/scLean"
+)
+
+citFooter("This work is released under the GPL-3 license.")

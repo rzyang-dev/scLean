@@ -1,0 +1,143 @@
+---
+title: "Getting Started with scLean"
+author: "rzyang-dev"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with scLean}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```r
+library(scLean)
+library(Seurat)
+```
+
+## Overview
+
+scLean is a memory-efficient single-cell RNA-seq analysis package that replaces
+Seurat's in-memory computation with HDF5-backed, out-of-core algorithms. It is
+designed for large datasets (500K+ cells) on machines with limited RAM (8 GB).
+
+The API is identical to standard Seurat — you can use `NormalizeData()`,
+`ScaleData()`, `RunPCA()`, and all other Seurat functions as you normally would.
+
+## Loading Data
+
+### From a 10X Genomics directory
+
+```r
+pbmc <- LoadScleanObject("path/to/filtered_feature_bc_matrix")
+```
+
+### From an existing Seurat object
+
+```r
+pbmc <- as.scLean(seurat_obj, hdf5_path = "my_data.h5")
+```
+
+### From a dgCMatrix
+
+```r
+counts <- Matrix::rsparsematrix(2000, 500, density = 0.1)
+pbmc <- LoadScleanObject(counts, assay = "RNA")
+```
+
+## Standard Seurat Pipeline
+
+All functions work the same way as standard Seurat, but computation is HDF5-backed:
+
+```r
+# Normalize
+pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize")
+
+# Find variable features
+pbmc <- FindVariableFeatures(pbmc, nfeatures = 2000)
+
+# Scale
+pbmc <- ScaleData(pbmc)
+
+# Run PCA
+pbmc <- RunPCA(pbmc, npcs = 30)
+
+# Find neighbors and clusters
+pbmc <- FindNeighbors(pbmc, dims = 1:30)
+pbmc <- FindClusters(pbmc, resolution = 0.8, algorithm = "leiden")
+
+# Run UMAP (delegates to Seurat's implementation)
+pbmc <- RunUMAP(pbmc, dims = 1:30)
+
+# Visualize
+DimPlot(pbmc, reduction = "umap", label = TRUE)
+```
+
+## Finding Markers
+
+```r
+# Differential expression between two clusters
+markers <- FindMarkers(pbmc, ident.1 = "1", ident.2 = "2")
+
+# All cluster markers
+all_markers <- FindAllMarkers(pbmc)
+
+# View top markers
+head(markers[order(markers$p_val_adj), ], n = 10)
+```
+
+## Integration
+
+```r
+# Split by batch and integrate
+obj_list <- SplitObject(pbmc, split.by = "orig.ident")
+pbmc <- IntegrateLayers(pbmc, method = "CCAIntegration")
+```
+
+## Memory Management
+
+Control how much RAM scLean uses:
+
+```r
+# Limit to 4 GB
+SetMaxRAM(4096)
+
+# Set a fixed chunk size (5000 cells per chunk)
+SetChunkSize(pbmc, 5000)
+
+# Check current memory usage
+MemoryReport(pbmc)
+
+# Restore automatic chunk sizing
+SetChunkSize(pbmc, NA)
+```
+
+## Converting Back to In-Memory Seurat
+
+If you need a standard Seurat object (e.g., for saving as `.rds`):
+
+```r
+# Load only the normalized data into memory
+pbmc_mem <- as.Seurat.scLean(pbmc, layers = "data")
+
+# Save as standard Seurat RDS
+saveRDS(pbmc_mem, file = "pbmc_seurat.rds")
+```
+
+## Saving and Loading scLean Objects
+
+scLean objects store only metadata and the HDF5 path in memory, so they are very
+small in RAM. Just make sure the HDF5 file is in the same location when loading:
+
+```r
+# Save (only metadata + HDF5 path reference)
+saveRDS(pbmc, file = "pbmc_sclean.rds")
+
+# Load (HDF5 file must still exist at the original path)
+pbmc <- readRDS("pbmc_sclean.rds")
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```

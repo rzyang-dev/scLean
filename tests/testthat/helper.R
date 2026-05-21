@@ -1,0 +1,24 @@
+# Test helper: re-expose internal C++ functions for testing
+CreateSCleanAssayFromHDF5 <- scLean:::CreateSCleanAssayFromHDF5
+CreateSCleanAssay <- scLean:::CreateSCleanAssay
+write_csc_to_hdf5 <- scLean:::write_csc_to_hdf5
+write_strings_to_hdf5 <- scLean:::write_strings_to_hdf5
+read_hdf5_shape <- scLean:::read_hdf5_shape
+read_hdf5_dense_chunk <- scLean:::read_hdf5_dense_chunk
+read_hdf5_as_dgCMatrix <- scLean:::read_hdf5_as_dgCMatrix
+hdf5_matvec <- scLean:::hdf5_matvec
+read_strings_from_hdf5 <- scLean:::read_strings_from_hdf5
+read_hdf5_int32 <- scLean:::read_hdf5_int32
+read_vector_int8 <- scLean:::read_vector_int8
+read_hdf5_double <- scLean:::read_hdf5_double
+read_hdf5_float32 <- scLean:::read_hdf5_float32
+read_dense_matrix <- scLean:::read_dense_matrix
+list_hdf5_groups <- scLean:::list_hdf5_groups
+cpp_normalize <- scLean:::cpp_normalize
+cpp_scale <- scLean:::cpp_scale
+cpp_vst <- scLean:::cpp_vst
+cpp_pca <- scLean:::cpp_pca
+cpp_find_neighbors <- scLean:::cpp_find_neighbors
+cpp_find_clusters <- scLean:::cpp_find_clusters
+cpp_find_markers <- scLean:::cpp_find_markers
+cpp_integrate <- scLean:::cpp_integrate

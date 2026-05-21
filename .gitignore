@@ -1,0 +1,52 @@
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.Renviron
+*.Rproj
+
+# C++ / compiled
+*.o
+*.so
+*.so.*
+*.dylib
+*.dll
+*.a
+
+# R package build
+scLean.Rcheck/
+*.tar.gz
+src/Makevars
+src/Makevars.win
+src/symbols.rds
+src/scLean.so
+
+# vignette / doc outputs
+inst/doc/
+doc/*.html
+doc/*.pdf
+
+# R package dev
+Meta/
+revdep/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# internal
+.claude/
+cran-comments.md

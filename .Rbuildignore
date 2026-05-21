@@ -1,0 +1,13 @@
+^\.claude$
+^\.DS_Store$
+^\.Rhistory$
+^\.gitignore$
+^\.Rbuildignore$
+^\.github$
+
+^src/.*\.o$
+^src/.*\.so$
+^LICENSE\.md$
+^LICENSE$
+^doc$
+^Meta$

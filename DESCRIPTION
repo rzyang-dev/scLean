@@ -1,0 +1,42 @@
+Package: scLean
+Type: Package
+Title: Memory-Efficient Single-Cell RNA-seq Analysis
+Version: 0.1.0
+Date: 2026-05-18
+Authors@R: c(
+    person("rzyang-dev", email = "ruizhe.yang@foxmail.com",
+           role = c("aut", "cre")))
+Author: rzyang-dev
+Maintainer: rzyang-dev <ruizhe.yang@foxmail.com>
+Description: A memory-efficient single-cell RNA-seq analysis package that
+    replaces Seurat's core functionality with disk-backed (HDF5) computation.
+    Designed to run complete scRNA-seq pipelines (normalization, scaling, PCA,
+    clustering, differential expression) on commodity hardware with 8GB RAM for
+    datasets of 500K+ cells. Uses C++ with Rcpp for performance and HDF5 for
+    out-of-core storage.
+License: GPL (>= 3)
+URL: https://github.com/rzyang-dev/scLean
+BugReports: https://github.com/rzyang-dev/scLean/issues
+Encoding: UTF-8
+SystemRequirements: HDF5 (>= 1.10.0), C++17
+CXX_STD: CXX17
+LinkingTo:
+    Rcpp,
+    RcppEigen,
+    Rhdf5lib,
+    RcppAnnoy
+Imports:
+    Rcpp,
+    R6,
+    methods,
+    SeuratObject (>= 5.0.0),
+    Seurat (>= 5.0.0),
+    Matrix (>= 1.6-0)
+Suggests:
+    mclust,
+    testthat (>= 3.0.0),
+    BiocStyle,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

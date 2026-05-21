@@ -1,0 +1,158 @@
+---
+title: "scLean API Reference"
+author: "rzyang-dev"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{API Reference}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+## Key Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Disk-backed layers** | Assay data (counts, data, scale.data) stored in HDF5 files, not RAM |
+| **Chunked computation** | All operators read/write in adaptive chunks controlled by the resource scheduler |
+| **Auto chunk sizing** | Chunk sizes adapt automatically to available RAM; override with `SetChunkSize()` |
+| **OOM degradation** | 3-level recovery: dense path → sparse path → shrink chunk → retry |
+| **Seurat compatibility** | API identical to Seurat — S3 dispatch routes to disk-backed methods |
+
+---
+
+## Data I/O & Conversion
+
+```{r}
+fn <- c(
+  "`LoadScleanObject(input, hdf5_path, assay, ...)`",
+  "`as.scLean(object, hdf5_path, assay, layers, ...)`",
+  "`as.Seurat.scLean(object, layers, assay, ...)`",
+  "`CreateSCleanAssay(counts, hdf5_path, assay, ...)`",
+  "`CreateSCleanAssayFromHDF5(hdf5_path, assay)`",
+  "`HDF5BackedMatrix$new(hdf5_path, group_path)`"
+)
+desc <- c(
+  "Load from 10X dir, dgCMatrix, HDF5, or Seurat object",
+  "Convert Seurat object to disk-backed storage",
+  "Convert disk-backed layers back to in-memory Seurat",
+  "Create disk-backed assay from a dgCMatrix",
+  "Reopen assay from an existing HDF5 file",
+  "R6 matrix proxy backed by HDF5; dim, [, t, %*%"
+)
+help <- c(
+  "`help(LoadScleanObject)`",
+  "`help(as.scLean)`",
+  "`help(as.Seurat.scLean)`",
+  "`help(CreateSCleanAssay)`",
+  "`help(CreateSCleanAssayFromHDF5)`",
+  "`help(HDF5BackedMatrix)`"
+)
+
+io_df <- data.frame(Function = fn, Description = desc, Help = help)
+knitr::kable(io_df, caption = "Data I/O & Conversion")
+```
+
+---
+
+## Analysis Pipeline
+
+```{r}
+fn_pipe <- c(
+  "`NormalizeData(object, method, scale.factor, ...)`",
+  "`ScaleData(object, features, do.scale, do.center, ...)`",
+  "`FindVariableFeatures(object, nfeatures, ...)`",
+  "`RunPCA(object, npcs, reduction.name, ...)`",
+  "`FindNeighbors(object, reduction, dims, k.param, ...)`",
+  "`FindClusters(object, algorithm, resolution, n.iter, ...)`",
+  "`FindMarkers(object, ident.1, ident.2, test.use, ...)`",
+  "`FindAllMarkers(object, test.use, logfc.threshold, min.pct, ...)`"
+)
+desc_pipe <- c(
+  "Chunked normalization: LogNormalize, CLR, or RelativeCounts",
+  "Per-gene mean/sd (Welford); PCA applies centering on-the-fly",
+  "VST-based variable gene selection with sparse fallback",
+  "IRLBA PCA from HDF5 data; on-the-fly centering",
+  "KNN/SNN graph; Annoy for large N, brute-force when memory-bound",
+  "Leiden or Louvain clustering on SNN graph",
+  "Differential expression: Wilcoxon, t-test, or logistic regression",
+  "Per-cluster DE; wraps FindMarkers for all clusters"
+)
+help_pipe <- c(
+  "`help(NormalizeData.scLeanAssay)`",
+  "`help(ScaleData.scLeanAssay)`",
+  "`help(FindVariableFeatures.scLeanAssay)`",
+  "`help(RunPCA.Seurat)`",
+  "`help(FindNeighbors.Seurat)`",
+  "`help(FindClusters.Seurat)`",
+  "`help(FindMarkers.Seurat)`",
+  "`help(FindAllMarkers.scLeanAssay)`"
+)
+
+pipe_df <- data.frame(Function = fn_pipe, Description = desc_pipe, Help = help_pipe)
+knitr::kable(pipe_df, caption = "Analysis Pipeline")
+```
+
+---
+
+## Integration
+
+```{r}
+fn_int <- "`IntegrateData.scLean(object, batch, n.ccs, n.mnn, sigma, max.iter, ...)`"
+desc_int <- "MNN-based batch correction with Gaussian kernel smoothing"
+help_int <- "`help(IntegrateData.scLean)`"
+
+int_df <- data.frame(Function = fn_int, Description = desc_int, Help = help_int)
+knitr::kable(int_df, caption = "Integration")
+```
+
+---
+
+## Resource Control
+
+```{r}
+fn_ctl <- c(
+  "`SetChunkSize(object, size)`",
+  "`SetMaxRAM(max_ram = 2048)`",
+  "`SetThreads(n = NULL)`",
+  "`SetVerbose(verbose = TRUE)`",
+  "`MemoryReport(object = NULL)`",
+  "`CheckResources()`",
+  "`RefreshMemory(object = NULL)`",
+  "`PerformanceSnapshot()`"
+)
+desc_ctl <- c(
+  "Set cells-per-chunk; NA to restore auto",
+  "Set RAM limit in MB (default: 2048)",
+  "Set OpenMP thread count; NULL to restore single-threaded",
+  "Toggle progress messages",
+  "Full resource report (RAM, CPU, pressure, HDF5 info)",
+  "Warn if memory or CPU pressure > 90%",
+  "Trigger R garbage collection",
+  "Quick RSS + wall-time snapshot for timing"
+)
+help_ctl <- c(
+  "`help(SetChunkSize)`",
+  "`help(SetMaxRAM)`",
+  "`help(SetThreads)`",
+  "`help(SetVerbose)`",
+  "`help(MemoryReport)`",
+  "`help(CheckResources)`",
+  "`help(RefreshMemory)`",
+  "`help(PerformanceSnapshot)`"
+)
+
+ctl_df <- data.frame(Function = fn_ctl, Description = desc_ctl, Help = help_ctl)
+knitr::kable(ctl_df, caption = "Resource Control & Monitoring")
+```
+
+---
+
+## See Also
+
+- `vignette("sclean", package = "scLean")` — step-by-step tutorial
+- `help(package = "scLean")` — complete function reference

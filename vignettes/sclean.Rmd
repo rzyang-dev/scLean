@@ -1,0 +1,225 @@
+---
+title: "Getting Started with scLean"
+author: "rzyang-dev"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with scLean}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r load}
+library(scLean)
+library(Seurat)
+
+# Create synthetic test data
+set.seed(42)
+counts <- Matrix::rsparsematrix(500, 300, density = 0.15,
+  dimnames = list(paste0("gene", 1:500), paste0("cell", 1:300)))
+obj <- LoadScleanObject(counts, assay = "RNA")
+```
+
+## Overview
+
+scLean is a memory-efficient single-cell RNA-seq analysis package that replaces
+Seurat's in-memory computation with HDF5-backed, out-of-core algorithms. It is
+designed for large datasets (500K+ cells) on machines with limited RAM (8 GB).
+
+```{r overview}
+obj
+```
+
+## Loading Data
+
+### From a dgCMatrix
+
+```{r load-matrix}
+counts2 <- Matrix::rsparsematrix(200, 100, density = 0.1,
+  dimnames = list(paste0("g", 1:200), paste0("c", 1:100)))
+obj2 <- LoadScleanObject(counts2, assay = "RNA")
+obj2
+```
+
+### From an existing Seurat object
+
+```{r load-seurat, eval=FALSE}
+seurat_obj <- SeuratObject::CreateSeuratObject(counts)
+obj <- as.scLean(seurat_obj, hdf5_path = "my_data.h5")
+```
+
+### From a 10X Genomics directory
+
+```{r load-10x, eval=FALSE}
+pbmc <- LoadScleanObject("path/to/filtered_feature_bc_matrix")
+```
+
+## Standard Seurat Pipeline
+
+All functions work the same way as standard Seurat, but computation is
+disk-backed and uses adaptive chunk sizing.
+
+### Normalize
+
+```{r normalize}
+t0 <- PerformanceSnapshot()
+obj <- NormalizeData(obj, normalization.method = "LogNormalize")
+t1 <- PerformanceSnapshot()
+cat(sprintf("NormalizeData: %.2f seconds\n",
+  (t1$wall_time_ns - t0$wall_time_ns) / 1e9))
+```
+
+### Find Variable Features
+
+```{r vst}
+t0 <- PerformanceSnapshot()
+obj <- FindVariableFeatures(obj, nfeatures = 100)
+t1 <- PerformanceSnapshot()
+cat(sprintf("FindVariableFeatures: %.2f seconds, %d features selected\n",
+  (t1$wall_time_ns - t0$wall_time_ns) / 1e9,
+  length(VariableFeatures(obj))))
+head(VariableFeatures(obj))
+```
+
+### Scale
+
+```{r scale}
+t0 <- PerformanceSnapshot()
+obj <- ScaleData(obj)
+t1 <- PerformanceSnapshot()
+cat(sprintf("ScaleData: %.2f seconds\n",
+  (t1$wall_time_ns - t0$wall_time_ns) / 1e9))
+```
+
+### Run PCA
+
+```{r pca}
+t0 <- PerformanceSnapshot()
+obj <- RunPCA(obj, npcs = 20)
+t1 <- PerformanceSnapshot()
+cat(sprintf("RunPCA: %.2f seconds\n",
+  (t1$wall_time_ns - t0$wall_time_ns) / 1e9))
+```
+
+### Find Neighbors and Clusters
+
+```{r neighbors}
+t0 <- PerformanceSnapshot()
+obj <- FindNeighbors(obj, dims = 1:20)
+obj <- FindClusters(obj, resolution = 0.8, algorithm = "leiden")
+t1 <- PerformanceSnapshot()
+cat(sprintf("FindNeighbors + FindClusters: %.2f seconds\n",
+  (t1$wall_time_ns - t0$wall_time_ns) / 1e9))
+table(Idents(obj))
+```
+
+### Run UMAP
+
+```r
+# UMAP delegates to Seurat's implementation (data read from HDF5)
+obj <- RunUMAP(obj, dims = 1:20)
+DimPlot(obj, reduction = "umap", label = TRUE)
+```
+
+## Finding Markers
+
+```{r markers}
+t0 <- PerformanceSnapshot()
+markers <- FindMarkers(obj, ident.1 = "1", ident.2 = "2")
+t1 <- PerformanceSnapshot()
+cat(sprintf("FindMarkers: %.2f seconds, %d significant genes\n",
+  (t1$wall_time_ns - t0$wall_time_ns) / 1e9,
+  nrow(markers)))
+head(markers[order(markers$p_val_adj), ], n = 6)
+```
+
+```{r all-markers}
+all_markers <- FindAllMarkers(obj)
+names(all_markers)
+```
+
+## Integration
+
+MNN-based batch correction for removing technical variation between samples:
+
+```{r integration}
+# Add synthetic batch labels
+obj$batch <- sample(c("A", "B"), ncol(obj), replace = TRUE)
+
+t0 <- PerformanceSnapshot()
+obj <- IntegrateData.scLean(obj, batch = "batch", n.ccs = 15)
+t1 <- PerformanceSnapshot()
+cat(sprintf("IntegrateData: %.2f seconds\n",
+  (t1$wall_time_ns - t0$wall_time_ns) / 1e9))
+```
+
+## Performance Monitoring
+
+scLean includes built-in resource monitoring. Use these between pipeline steps
+to detect bottlenecks early.
+
+```{r monitoring}
+# System pressure check (warns if memory or CPU > 90%)
+CheckResources()
+
+# Detailed resource report
+MemoryReport(obj)
+```
+
+## Memory Management
+
+```{r memory}
+# Check current memory usage
+report <- MemoryReport(obj)
+cat(sprintf("Free RAM: %.0f MB\n", report$free_ram_mb))
+cat(sprintf("Current RSS: %.0f MB\n", report$current_rss_mb))
+
+# Limit to 2 GB
+SetMaxRAM(2048)
+
+# Set fixed chunk size
+SetChunkSize(obj, 500)
+
+# Restore automatic mode
+SetChunkSize(obj, NA)
+
+# Force garbage collection
+RefreshMemory(obj)
+
+# Control parallelism
+SetThreads(2)
+SetThreads()  # restore default
+```
+
+## Converting Back
+
+```{r convert}
+# Load data layer into memory
+obj_mem <- as.Seurat.scLean(obj, layers = "data")
+obj_mem
+```
+
+## Saving and Loading
+
+scLean objects store only metadata and the HDF5 path in memory. The HDF5 file
+must exist at the same path when reloading:
+
+```{r save-load, eval=FALSE}
+saveRDS(obj, file = "sclean_obj.rds")
+obj <- readRDS("sclean_obj.rds")
+```
+
+## See Also
+
+- `vignette("reference", package = "scLean")` — API cheat sheet
+- `help(package = "scLean")` — complete function reference
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
