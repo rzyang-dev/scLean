@@ -114,7 +114,7 @@ obj <- FindClusters(obj, resolution = 0.8, algorithm = "leiden")
 t1 <- PerformanceSnapshot()
 cat(sprintf("FindNeighbors + FindClusters: %.2f seconds\n",
   (t1$wall_time_ns - t0$wall_time_ns) / 1e9))
-table(Idents(obj))
+table(SeuratObject::Idents(obj))
 ```
 
 ### Run UMAP

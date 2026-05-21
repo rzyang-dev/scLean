@@ -13,6 +13,8 @@
 #elif defined(_WIN32)
 #include <windows.h>
 #else
+#include <unistd.h>
+#include <sys/resource.h>
 #include <sys/sysinfo.h>
 #endif
 
