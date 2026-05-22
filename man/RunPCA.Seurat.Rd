@@ -4,7 +4,9 @@
 \alias{RunPCA.Seurat}
 \title{Run PCA (disk-backed IRLBA)}
 \usage{
-\\method{RunPCA}{Seurat}(object, npcs = 50, features = NULL, reduction.name = "pca", reduction.key = "PC_", tol = 1e-5, max.iter = 1000, ...)
+\method{RunPCA}{Seurat}(object, npcs = 50, features = NULL,
+  reduction.name = "pca", reduction.key = "PC_",
+  tol = 1e-5, max.iter = 1000, ...)
 }
 \arguments{
 \item{object}{A Seurat object}

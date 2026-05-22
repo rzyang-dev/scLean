@@ -1,11 +1,14 @@
 # PBMC 3k memory benchmark: scLean pipeline peak memory
 # skip_on_cran
 
+sys_ram_gb <- function() {
+  tryCatch(scLean:::cpp_resource_snapshot()$total_ram / (1024^3),
+           error = function(e) 0)
+}
+
 test_that("scLean pipeline memory on PBMC 3k", {
   skip_on_cran()
-  mem_gb <- tryCatch(
-    as.numeric(system("sysctl -n hw.memsize", intern = TRUE)) / (1024^3),
-    error = function(e) 0)
+  mem_gb <- sys_ram_gb()
   skip_if(mem_gb > 0 && mem_gb < 10,
     sprintf("System has %.0f GB RAM; PBMC 3k test needs 10+ GB in full suite", mem_gb))
 
@@ -64,9 +67,7 @@ test_that("scLean vs Seurat memory comparison", {
     "SCLEAN_COMPARE=false: skipping Seurat comparison"
   )
 
-  mem_gb <- tryCatch(
-    as.numeric(system("sysctl -n hw.memsize", intern = TRUE)) / (1024^3),
-    error = function(e) 0)
+  mem_gb <- sys_ram_gb()
   skip_if(mem_gb > 0 && mem_gb < 14,
     sprintf("System has %.0f GB RAM (< 14 GB needed for Seurat comparison)", mem_gb))
 
@@ -84,7 +85,8 @@ test_that("scLean vs Seurat memory comparison", {
   seurat_obj <- Seurat::ScaleData(seurat_obj, verbose = FALSE)
   seurat_obj <- Seurat::RunPCA(seurat_obj, npcs = 10, verbose = FALSE)
   seurat_obj <- Seurat::FindNeighbors(seurat_obj, dims = 1:10, verbose = FALSE)
-  seurat_obj <- Seurat::FindClusters(seurat_obj, resolution = 0.8, verbose = FALSE)
+  seurat_obj <- Seurat::FindClusters(seurat_obj, resolution = 0.8,
+    random.seed = 1, verbose = FALSE)
 
   pid <- Sys.getpid()
   rss_seurat <- as.numeric(system(paste("ps -o rss= -p", pid), intern = TRUE)) / 1024

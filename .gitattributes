@@ -1,0 +1,8 @@
+# Force LF line endings for shell scripts
+configure        text eol=lf
+configure.ac     text eol=lf
+configure.win    text eol=lf
+cleanup          text eol=lf
+
+# Auto-detect text files, normalize to LF on commit
+* text=auto

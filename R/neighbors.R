@@ -13,7 +13,9 @@
 #' @param annoy.metric  Distance metric for Annoy (default: "euclidean")
 #' @param n.trees  Number of trees for Annoy index (default: 50)
 #' @param ...  Additional arguments
-#' @usage \\method{FindNeighbors}{Seurat}(object, reduction = "pca", dims = NULL, k.param = 20, annoy.metric = "euclidean", n.trees = 50, ...)
+#' @usage
+#' \method{FindNeighbors}{Seurat}(object, reduction = "pca", dims = NULL,
+#'   k.param = 20, annoy.metric = "euclidean", n.trees = 50, ...)
 #' @return Seurat object with NN and SNN graphs
 #' @examples
 #' \donttest{

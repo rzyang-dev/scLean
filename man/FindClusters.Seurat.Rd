@@ -4,7 +4,8 @@
 \alias{FindClusters.Seurat}
 \title{Find clusters (disk-backed)}
 \usage{
-\\method{FindClusters}{Seurat}(object, algorithm = "leiden", resolution = 0.8, n.iter = 10, ...)
+\method{FindClusters}{Seurat}(object, algorithm = "leiden",
+  resolution = 0.8, n.iter = 10, ...)
 }
 \arguments{
 \item{object}{A Seurat object}

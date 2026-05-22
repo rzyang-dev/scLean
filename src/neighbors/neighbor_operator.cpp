@@ -7,6 +7,9 @@
 #include <stdexcept>
 
 // Raw Annoy headers — avoid RcppAnnoy.h which conflicts with Rcpp.h includes
+#ifndef STRICT_R_HEADERS
+#define STRICT_R_HEADERS
+#endif
 #include "annoylib.h"
 #include "kissrandom.h"
 

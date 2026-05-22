@@ -4,7 +4,8 @@
 \alias{FindMarkers.Seurat}
 \title{Find markers (disk-backed)}
 \usage{
-\\method{FindMarkers}{Seurat}(object, ident.1, ident.2 = NULL, test.use = "wilcox", logfc.threshold = 0.25, min.pct = 0.1, ...)
+\method{FindMarkers}{Seurat}(object, ident.1, ident.2 = NULL,
+  test.use = "wilcox", logfc.threshold = 0.25, min.pct = 0.1, ...)
 }
 \arguments{
 \item{object}{A Seurat object}

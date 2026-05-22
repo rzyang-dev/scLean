@@ -12,7 +12,10 @@
 #' @param tol  Convergence tolerance (default: 1e-5)
 #' @param max.iter  Maximum Lanczos iterations (default: 1000)
 #' @param ...  Additional arguments passed to Seurat or scLean
-#' @usage \\method{RunPCA}{Seurat}(object, npcs = 50, features = NULL, reduction.name = "pca", reduction.key = "PC_", tol = 1e-5, max.iter = 1000, ...)
+#' @usage
+#' \method{RunPCA}{Seurat}(object, npcs = 50, features = NULL,
+#'   reduction.name = "pca", reduction.key = "PC_",
+#'   tol = 1e-5, max.iter = 1000, ...)
 #' @return Seurat object with PCA reduction
 #' @examples
 #' \donttest{

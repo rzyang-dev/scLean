@@ -12,10 +12,10 @@ OPENMP_CXXFLAGS=""
 OPENMP_LIBS=""
 if echo '#include <omp.h>' | ${CXX} -fopenmp -x c++ -c - -o /dev/null 2>/dev/null; then
     OPENMP_CXXFLAGS='$(SHLIB_OPENMP_CXXFLAGS)'
-    OPENMP_LIBS='$(SHLIB_OPENMP_CXXLIBS)'
+    OPENMP_LIBS='$(SHLIB_OPENMP_CXXFLAGS)'
 elif echo '#include <omp.h>' | ${CXX} -Xclang -fopenmp -x c++ -c - -o /dev/null 2>/dev/null; then
     OPENMP_CXXFLAGS='$(SHLIB_OPENMP_CXXFLAGS)'
-    OPENMP_LIBS='$(SHLIB_OPENMP_CXXLIBS)'
+    OPENMP_LIBS='$(SHLIB_OPENMP_CXXFLAGS)'
 fi
 
 # Add macOS Homebrew library paths if they exist

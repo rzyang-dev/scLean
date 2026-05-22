@@ -4,7 +4,8 @@
 \alias{FindNeighbors.Seurat}
 \title{Find neighbors (disk-backed)}
 \usage{
-\\method{FindNeighbors}{Seurat}(object, reduction = "pca", dims = NULL, k.param = 20, annoy.metric = "euclidean", n.trees = 50, ...)
+\method{FindNeighbors}{Seurat}(object, reduction = "pca", dims = NULL,
+  k.param = 20, annoy.metric = "euclidean", n.trees = 50, ...)
 }
 \arguments{
 \item{object}{A Seurat object}

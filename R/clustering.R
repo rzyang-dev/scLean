@@ -10,7 +10,9 @@
 #' @param resolution  Resolution parameter (default: 0.8)
 #' @param n.iter  Number of iterations for Leiden refinement (default: 10)
 #' @param ...  Additional arguments
-#' @usage \\method{FindClusters}{Seurat}(object, algorithm = "leiden", resolution = 0.8, n.iter = 10, ...)
+#' @usage
+#' \method{FindClusters}{Seurat}(object, algorithm = "leiden",
+#'   resolution = 0.8, n.iter = 10, ...)
 #' @return Seurat object with cluster assignments (Idents + seurat_clusters)
 #' @examples
 #' \donttest{

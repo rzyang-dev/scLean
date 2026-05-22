@@ -3,13 +3,16 @@
 # Note: 8GB systems may need to set SCLEAN_COMPARE=FALSE to skip
 # the memory-intensive Seurat side-by-side comparison.
 
+sys_ram_gb <- function() {
+  tryCatch(scLean:::cpp_resource_snapshot()$total_ram / (1024^3),
+           error = function(e) 0)
+}
+
 test_that("PBMC 3k pipeline runs end-to-end", {
   skip_on_cran()
   skip_if_not_installed("Seurat")
   # Require ~6GB free RAM for Lanczos + dense moment buffers
-  mem_gb <- tryCatch(
-    as.numeric(system("sysctl -n hw.memsize", intern = TRUE)) / (1024^3),
-    error = function(e) 0)
+  mem_gb <- sys_ram_gb()
   skip_if(mem_gb > 0 && mem_gb < 10,
     sprintf("System has %.0f GB RAM; PBMC 3k test needs 10+ GB in full suite", mem_gb))
 
@@ -143,7 +146,8 @@ test_that("PBMC 3k Seurat comparison", {
   seurat_obj <- Seurat::RunPCA(seurat_obj, npcs = 10, verbose = FALSE)
   seurat_stdev <- seurat_obj@reductions$pca@stdev[1:10]
   seurat_obj <- Seurat::FindNeighbors(seurat_obj, dims = 1:10, verbose = FALSE)
-  seurat_obj <- Seurat::FindClusters(seurat_obj, resolution = 0.8, verbose = FALSE)
+  seurat_obj <- Seurat::FindClusters(seurat_obj, resolution = 0.8,
+    random.seed = 1, verbose = FALSE)
   seurat_clusters <- as.integer(Seurat::Idents(seurat_obj))
 
   # ---- Comparison 1: Variable features overlap ----

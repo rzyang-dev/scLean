@@ -12,7 +12,9 @@
 #' @param logfc.threshold  Minimum log2 fold change (default: 0.25)
 #' @param min.pct  Minimum fraction of cells expressing the gene (default: 0.1)
 #' @param ...  Additional arguments
-#' @usage \\method{FindMarkers}{Seurat}(object, ident.1, ident.2 = NULL, test.use = "wilcox", logfc.threshold = 0.25, min.pct = 0.1, ...)
+#' @usage
+#' \method{FindMarkers}{Seurat}(object, ident.1, ident.2 = NULL,
+#'   test.use = "wilcox", logfc.threshold = 0.25, min.pct = 0.1, ...)
 #' @return Data frame of marker genes
 #' @examples
 #' \donttest{
