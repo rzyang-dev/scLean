@@ -6,12 +6,20 @@
 HDF5_CXX_LIBS=`${R_HOME}/bin/Rscript -e "cat(Rhdf5lib::pkgconfig('PKG_CXX_LIBS'))" 2>/dev/null`
 HDF5_C_LIBS=`${R_HOME}/bin/Rscript -e "cat(Rhdf5lib::pkgconfig('PKG_C_LIBS'))" 2>/dev/null`
 
-# Check for OpenMP (gcc-style, available in Rtools)
+# Check for OpenMP — Windows Rtools uses gcc with -fopenmp
 OPENMP_CXXFLAGS=""
 OPENMP_LIBS=""
-if echo '#include <omp.h>' | ${CXX} ${CXXFLAGS} -fopenmp -x c++ -c - -o /dev/null 2>/dev/null; then
-    OPENMP_CXXFLAGS='$(SHLIB_OPENMP_CXXFLAGS)'
-    OPENMP_LIBS='$(SHLIB_OPENMP_CXXLIBS)'
+if command -v ${CXX:-g++} > /dev/null 2>&1; then
+    if echo '#include <omp.h>' | ${CXX:-g++} -fopenmp -x c++ -c - -o NUL 2>/dev/null; then
+        OPENMP_CXXFLAGS='-fopenmp'
+        OPENMP_LIBS='-fopenmp'
+    fi
+fi
+
+# Fallback: always add -fopenmp for Windows Rtools (posix thread model)
+if [ -z "${OPENMP_CXXFLAGS}" ]; then
+    OPENMP_CXXFLAGS='-fopenmp'
+    OPENMP_LIBS='-fopenmp'
 fi
 
 # Find all .cpp files in subdirectories (R only auto-compiles src/*.cpp)
@@ -29,4 +37,4 @@ EOF
 
 echo "scLean configure.win: HDF5 flags detected"
 echo "  PKG_LIBS: ${HDF5_CXX_LIBS} ${HDF5_C_LIBS}"
-echo "  OpenMP:   ${OPENMP_CXXFLAGS:-disabled}"
+echo "  OpenMP:   ${OPENMP_CXXFLAGS}"

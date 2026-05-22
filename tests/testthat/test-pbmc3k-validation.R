@@ -93,6 +93,7 @@ test_that("PBMC 3k pipeline runs end-to-end", {
 test_that("PBMC 3k Seurat comparison", {
   skip_on_cran()
   skip_if_not_installed("Seurat")
+  skip_if_not_installed("leidenbase")
   skip_if(
     tolower(Sys.getenv("SCLEAN_COMPARE", "true")) == "false",
     "SCLEAN_COMPARE=false: skipping Seurat comparison"

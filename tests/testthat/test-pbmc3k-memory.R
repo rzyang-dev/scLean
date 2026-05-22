@@ -58,6 +58,7 @@ test_that("scLean pipeline memory on PBMC 3k", {
 test_that("scLean vs Seurat memory comparison", {
   skip_on_cran()
   skip_if_not_installed("Seurat")
+  skip_if_not_installed("leidenbase")
   skip_if(
     tolower(Sys.getenv("SCLEAN_COMPARE", "true")) == "false",
     "SCLEAN_COMPARE=false: skipping Seurat comparison"

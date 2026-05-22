@@ -40,7 +40,9 @@ obj <- NormalizeData(obj)
 obj <- FindVariableFeatures(obj, nfeatures = 100)
 obj <- ScaleData(obj)
 obj <- RunPCA(obj, npcs = 10)
-DimPlot(obj, reduction = "pca")
+if (requireNamespace("Seurat", quietly = TRUE)) {
+  Seurat::DimPlot(obj, reduction = "pca")
+}
 }
 }
 \seealso{
