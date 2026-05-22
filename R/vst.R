@@ -53,8 +53,10 @@ FindVariableFeatures.scLeanAssay <- function(
 
   if (inherits(object, "Seurat")) {
     object@assays[[assay]] <- sc_assay
-    SeuratObject::VariableFeatures(object) <- vf[is_var == 1]
+    selected <- vf[is_var == 1]
+    VariableFeatures(object[[assay]]) <- selected
     return(object)
   }
+  VariableFeatures(sc_assay) <- vf[is_var == 1]
   return(sc_assay)
 }

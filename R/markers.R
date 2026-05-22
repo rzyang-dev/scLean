@@ -64,15 +64,25 @@ FindMarkers.scLeanAssay <- function(
       min.pct = min.pct, ...))
   }
 
-  clusters <- as.integer(SeuratObject::Idents(object))
+  idents <- SeuratObject::Idents(object)
+  clusters <- as.integer(idents)
   test_map <- c(wilcox = 0L, t = 1L, LR = 2L)
+
+  ident_map <- setNames(seq_along(levels(idents)), levels(idents))
+  ident_1_int <- ident_map[as.character(ident.1)]
+  if (is.na(ident_1_int)) stop("ident.1 '", ident.1, "' not found in Idents")
+  ident_2_int <- if (is.null(ident.2)) -1L else {
+    val <- ident_map[as.character(ident.2)]
+    if (is.na(val)) stop("ident.2 '", ident.2, "' not found in Idents")
+    val
+  }
 
   result <- cpp_find_markers(
     hdf5_path       = sc_assay@hdf5_path,
     assay_group     = sc_assay@hdf5_group,
     clusters        = clusters,
-    ident_1         = as.integer(ident.1),
-    ident_2         = if (is.null(ident.2)) -1L else as.integer(ident.2),
+    ident_1         = ident_1_int,
+    ident_2         = ident_2_int,
     test_type       = test_map[test.use],
     logfc_threshold = logfc.threshold,
     min_pct         = min.pct
@@ -143,4 +153,17 @@ FindAllMarkers.scLeanAssay <- function(
 
   names(results) <- all_clusters
   return(results)
+}
+
+#' @export
+FindAllMarkers.Seurat <- function(object, test.use = "wilcox",
+    logfc.threshold = 0.25, min.pct = 0.1, ...) {
+  assay <- SeuratObject::DefaultAssay(object)
+  sc_assay <- object@assays[[assay]]
+  if (inherits(sc_assay, "scLeanAssay")) {
+    return(FindAllMarkers.scLeanAssay(object, test.use = test.use,
+      logfc.threshold = logfc.threshold, min.pct = min.pct, ...))
+  }
+  Seurat::FindAllMarkers(object, test.use = test.use,
+    logfc.threshold = logfc.threshold, min.pct = min.pct, ...)
 }

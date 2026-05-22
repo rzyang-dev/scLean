@@ -408,14 +408,14 @@ List cpp_vst(std::string hdf5_path, std::string assay_group, int n_top) {
     HDF5File file(hdf5_path, FileMode::ReadWrite);
     auto scheduler = make_scheduler();
 
-    auto mat = file.open_csc_matrix(assay_group + "/layers/data");
+    auto mat = file.open_csc_matrix(assay_group + "/layers/counts");
     int64 n_genes = mat->n_rows();
     int64 n_cells = mat->n_cols();
 
     VSTOperator op(n_top);
     // HDF5-backed read ops need --enable-threadsafe for multi-threading
     int n_threads = get_num_threads();
-    VSTResult res = op.run(&file, assay_group + "/layers/data",
+    VSTResult res = op.run(&file, assay_group + "/layers/counts",
                              n_genes, n_cells, scheduler, n_threads);
 
     // Write results to HDF5

@@ -38,8 +38,21 @@ LoadScleanObject <- function(
     )
     assay_obj <- CreateSCleanAssayFromHDF5(hdf5_path, assay = assay)
   } else if (is.character(input) && grepl("\\.(h5|hdf5)$", input, ignore.case = TRUE)) {
-    # HDF5 file — assume it's already in scLean format
-    assay_obj <- CreateSCleanAssayFromHDF5(input, assay = assay)
+    if (file.exists(input)) {
+      groups <- list_hdf5_groups(input, "/")
+      if ("matrix" %in% groups) {
+        if (requireNamespace("Seurat", quietly = TRUE)) {
+          counts <- Seurat::Read10X_h5(input)
+          assay_obj <- CreateSCleanAssay(counts, hdf5_path = hdf5_path, assay = assay)
+        } else {
+          stop("CellRanger .h5 format detected but Seurat is not available")
+        }
+      } else {
+        assay_obj <- CreateSCleanAssayFromHDF5(input, assay = assay)
+      }
+    } else {
+      stop("HDF5 file not found: ", input)
+    }
   } else if (inherits(input, "dgCMatrix") || is.matrix(input)) {
     assay_obj <- CreateSCleanAssay(input, hdf5_path = hdf5_path, assay = assay)
   } else {
@@ -98,6 +111,15 @@ as.scLean <- function(object, hdf5_path, assay = NULL, layers = NULL, ...) {
     layers <- names(orig_assay@layers)
   }
 
+  normalize_layer_name <- function(name) {
+    if (grepl("^counts", name)) return("counts")
+    if (grepl("^data", name)) return("data")
+    if (grepl("^scale\\.data", name)) return("scale.data")
+    return(name)
+  }
+
+  written_layers <- character()
+
   for (layer_name in layers) {
     layer_data <- SeuratObject::GetAssayData(object, assay = assay, layer = layer_name)
     if (is.null(layer_data)) next
@@ -106,9 +128,13 @@ as.scLean <- function(object, hdf5_path, assay = NULL, layers = NULL, ...) {
       layer_data <- as(layer_data, "dgCMatrix")
     }
 
+    norm_name <- normalize_layer_name(layer_name)
+    if (norm_name %in% written_layers) next
+    written_layers <- c(written_layers, norm_name)
+
     write_csc_to_hdf5(
       hdf5_path  = hdf5_path,
-      group_path = paste0("/assays/", assay, "/layers/", layer_name),
+      group_path = paste0("/assays/", assay, "/layers/", norm_name),
       data       = layer_data@x,
       indices    = layer_data@i,
       indptr     = layer_data@p,
@@ -201,6 +227,10 @@ as.Seurat.scLean <- function(object, layers = "data", assay = NULL, ...) {
   if (is.null(new_assay)) {
     stop("No layers could be loaded from HDF5")
   }
+
+  new_assay@key <- sc_assay@key
+  new_assay@cells <- sc_assay@cells
+  new_assay@features <- sc_assay@features
 
   object@assays[[assay]] <- new_assay
   return(object)

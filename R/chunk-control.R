@@ -83,29 +83,40 @@ MemoryReport <- function(object = NULL) {
   )
 
   if (!is.null(object)) {
-    for (assay_name in names(object@assays)) {
-      assay <- object@assays[[assay_name]]
-      if (inherits(assay, "scLeanAssay")) {
-        report$hdf5_path <- assay@hdf5_path
-        if (file.exists(assay@hdf5_path)) {
-          report$hdf5_file_size_mb <- file.info(assay@hdf5_path)$size / 1024^2
+    if (inherits(object, "scLeanAssay")) {
+      report$hdf5_path <- object@hdf5_path
+      if (file.exists(object@hdf5_path)) {
+        report$hdf5_file_size_mb <- file.info(object@hdf5_path)$size / 1024^2
+      }
+      layers_info <- list()
+      for (ln in names(object@layers)) {
+        l <- object@layers[[ln]]
+        if (is.list(l) && isTRUE(l$virtual)) {
+          layers_info[[ln]] <- list(path = l$path, type = "virtual")
+        } else {
+          layers_info[[ln]] <- list(dims = dim(l), type = class(l)[1])
         }
-        layers_info <- list()
-        for (ln in names(assay@layers)) {
-          l <- assay@layers[[ln]]
-          if (is.list(l) && isTRUE(l$virtual)) {
-            layers_info[[ln]] <- list(
-              path = l$path,
-              type = "virtual"
-            )
-          } else {
-            layers_info[[ln]] <- list(
-              dims = dim(l),
-              type = class(l)[1]
-            )
+      }
+      report$layers <- layers_info
+    } else if (inherits(object, "Seurat")) {
+      for (assay_name in names(object@assays)) {
+        assay <- object@assays[[assay_name]]
+        if (inherits(assay, "scLeanAssay")) {
+          report$hdf5_path <- assay@hdf5_path
+          if (file.exists(assay@hdf5_path)) {
+            report$hdf5_file_size_mb <- file.info(assay@hdf5_path)$size / 1024^2
           }
+          layers_info <- list()
+          for (ln in names(assay@layers)) {
+            l <- assay@layers[[ln]]
+            if (is.list(l) && isTRUE(l$virtual)) {
+              layers_info[[ln]] <- list(path = l$path, type = "virtual")
+            } else {
+              layers_info[[ln]] <- list(dims = dim(l), type = class(l)[1])
+            }
+          }
+          report$layers <- layers_info
         }
-        report$layers <- layers_info
       }
     }
   }
