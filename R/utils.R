@@ -48,6 +48,7 @@ is_numeric_like <- function(x) {
 #' Check if running on limited memory hardware
 #' @noRd
 is_low_memory <- function() {
-  ram <- .get_max_ram_bytes()
-  return(ram <= 4 * 1024^3)  # 4GB or less
+  snap <- tryCatch(cpp_resource_snapshot(), error = function(e) NULL)
+  if (is.null(snap)) return(FALSE)
+  return(snap$free_ram <= 4 * 1024^3)
 }

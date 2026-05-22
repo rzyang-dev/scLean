@@ -96,14 +96,18 @@ ChunkAxis ChunkScheduler::op_axis(OperationType op) {
 
 // --- Constructor ---
 
-ChunkScheduler::ChunkScheduler(int64 available_ram_bytes)
-    : available_ram_(available_ram_bytes > 0 ? available_ram_bytes : detect_free_ram())
+ChunkScheduler::ChunkScheduler(int64 cap_bytes)
+    : cap_(cap_bytes > 0 ? cap_bytes : 0)
+    , available_ram_(cap_bytes > 0
+        ? std::min(detect_free_ram(), cap_bytes)
+        : detect_free_ram())
     , chunk_override_(-1)
     , retry_count_(0)
     , last_bottleneck_(Bottleneck::None) {}
 
 void ChunkScheduler::refresh_available_ram() {
-    available_ram_ = detect_free_ram();
+    int64 free = detect_free_ram();
+    available_ram_ = cap_ > 0 ? std::min(free, cap_) : free;
 }
 
 int64 ChunkScheduler::worst_case_available_ram(int64 free_ram, int64 current_rss, int n_threads) {

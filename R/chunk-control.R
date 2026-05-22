@@ -21,16 +21,25 @@ SetChunkSize <- function(object, size) {
   invisible(object)
 }
 
-#' Set maximum RAM scLean is allowed to use (in MB)
+#' Set a memory ceiling for scLean (in MB)
 #'
-#' @param max_ram  Memory limit in megabytes (default: 2048)
-#' @return The memory limit in bytes, invisibly
+#' scLean auto-detects free system RAM on every operation. Use
+#' \code{SetMaxRAM} to optionally cap the amount used. The scheduler
+#' will never exceed \code{min(free RAM, cap)}.
+#'
+#' @param max_ram  Memory ceiling in megabytes. Set \code{NULL} to
+#'   remove the ceiling and revert to fully automatic management.
+#' @return The ceiling in bytes, invisibly (\code{NULL} if removed).
 #' @examples
-#' SetMaxRAM(4096)
-#' SetMaxRAM()  # restore default 2048 MB
+#' SetMaxRAM(4096)           # cap at 4 GB (never exceeds free RAM)
+#' SetMaxRAM()               # remove ceiling, fully automatic
 #' @seealso \code{\link{SetChunkSize}}, \code{\link{MemoryReport}}
 #' @export
-SetMaxRAM <- function(max_ram = 2048) {
+SetMaxRAM <- function(max_ram = NULL) {
+  if (is.null(max_ram)) {
+    options(scLean.max_ram = NULL)
+    return(invisible(NULL))
+  }
   bytes <- as.numeric(max_ram) * 1024 * 1024
   options(scLean.max_ram = bytes)
   invisible(bytes)
@@ -65,7 +74,10 @@ MemoryReport <- function(object = NULL) {
     # Bottleneck
     bottleneck        = cpp_bottleneck_type(),
     # Config
-    max_ram_mb        = getOption("scLean.max_ram", default = 2048),
+    max_ram_mb        = {
+      cap <- getOption("scLean.max_ram")
+      if (is.null(cap)) NA_real_ else cap / 1048576
+    },
     max_dense_chunk_mb = cpp_get_max_dense_chunk_mb(),
     chunk_size        = getOption("scLean.chunk_size", default = "auto")
   )
@@ -217,7 +229,9 @@ SetThreads <- function(n = NULL) {
 }
 
 .get_max_ram_bytes <- function() {
-  getOption("scLean.max_ram", default = 2048 * 1024 * 1024)
+  cap <- getOption("scLean.max_ram")
+  if (is.null(cap)) return(0)  # 0 signals C++ scheduler to auto-detect free RAM
+  as.numeric(cap)
 }
 
 .get_verbose <- function() {

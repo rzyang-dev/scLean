@@ -10,13 +10,14 @@ test_that("SetChunkSize sets and clears chunk size", {
   expect_null(getOption("scLean.chunk_size"))
 })
 
-test_that("SetMaxRAM sets memory limit", {
+test_that("SetMaxRAM sets and clears memory ceiling", {
+  # Set a ceiling
   SetMaxRAM(1024)
-  expect_equal(getOption("scLean.max_ram"), 1024L * 1024 * 1024)
+  expect_equal(getOption("scLean.max_ram"), 1024 * 1024 * 1024)
 
-  # Restore default
-  SetMaxRAM(2048)
-  expect_equal(getOption("scLean.max_ram"), 2048L * 1024 * 1024)
+  # Remove ceiling (back to auto)
+  SetMaxRAM(NULL)
+  expect_null(getOption("scLean.max_ram"))
 })
 
 test_that("SetVerbose toggles verbose output", {
@@ -35,7 +36,12 @@ test_that("MemoryReport returns expected structure", {
   expect_type(report, "list")
   expect_true("max_ram_mb" %in% names(report))
   expect_true("chunk_size" %in% names(report))
-  expect_equal(report$max_ram_mb, getOption("scLean.max_ram", default = 2048))
+  cap <- getOption("scLean.max_ram")
+  if (is.null(cap)) {
+    expect_true(is.na(report$max_ram_mb))
+  } else {
+    expect_equal(report$max_ram_mb, cap / 1048576)
+  }
 })
 
 test_that("MemoryReport with Seurat object includes file info", {
@@ -64,6 +70,6 @@ test_that("MemoryReport with Seurat object includes file info", {
 
 test_that("Internal option helpers return correct defaults", {
   expect_null(scLean:::.get_chunk_override())
-  expect_gt(scLean:::.get_max_ram_bytes(), 0)
+  expect_equal(scLean:::.get_max_ram_bytes(), 0)  # 0 = auto, no cap
   expect_true(scLean:::.get_verbose())
 })

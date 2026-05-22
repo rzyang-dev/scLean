@@ -55,6 +55,7 @@ public:
 
     void refresh_available_ram();
     int64 available_ram() const { return available_ram_; }
+    int64 user_cap() const { return cap_; }
     int64 usable_ram() const {
         return static_cast<int64>(available_ram_ * SAFETY_FACTOR);
     }
@@ -77,8 +78,9 @@ public:
                           int64 n_threads, ChunkConfig& config);
 
 private:
+    int64 cap_;               // user ceiling in bytes (0 = no cap)
     int64 available_ram_;
-    int64 chunk_override_;  // -1 = auto
+    int64 chunk_override_;    // -1 = auto
     int retry_count_;
     Bottleneck last_bottleneck_ = Bottleneck::None;
 

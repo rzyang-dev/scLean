@@ -8,32 +8,10 @@ NULL
 .seurat_original <- new.env(parent = emptyenv())
 
 .onLoad <- function(libname, pkgname) {
-  # Set default chunk size option
-  if (is.null(getOption("scLean.max_ram"))) {
-    # Detect physical RAM and default to 80%
-    total_ram_bytes <- tryCatch({
-      if (Sys.info()["sysname"] == "Darwin") {
-        as.numeric(system("sysctl -n hw.memsize", intern = TRUE))
-      } else if (.Platform$OS.type == "windows") {
-        mem <- tryCatch(
-          as.numeric(gsub("\\D", "",
-            system("wmic computersystem get TotalPhysicalMemory",
-                   intern = TRUE)[2])),
-          error = function(e) NA)
-        if (length(mem) && !is.na(mem)) mem else NA
-      } else {
-        as.numeric(system("awk '/MemTotal/ {print $2*1024}' /proc/meminfo",
-                   intern = TRUE))
-      }
-    }, error = function(e) NA)
-
-    if (!is.na(total_ram_bytes) && total_ram_bytes > 0) {
-      default_ram <- max(2048 * 1024 * 1024, as.numeric(total_ram_bytes) * 0.8)
-    } else {
-      default_ram <- 2048 * 1024 * 1024  # fallback 2 GB
-    }
-    options(scLean.max_ram = default_ram)
-  }
+  # RAM is auto-managed based on system free memory.
+  # No default scLean.max_ram is set; the C++ scheduler detects free RAM
+  # and applies SAFETY_FACTOR + OS/thread reserves dynamically.
+  # Use SetMaxRAM(N) to optionally cap the auto-detected value.
 
   # Suppress HDF5 error stack printing
   suppress_hdf5_errors()
@@ -52,10 +30,23 @@ NULL
 }
 
 .onAttach <- function(libname, pkgname) {
-  packageStartupMessage(
+  free_mb <- tryCatch({
+    snap <- cpp_resource_snapshot()
+    round(snap$free_ram / 1048576)
+  }, error = function(e) NA)
+
+  msg <- paste0(
     "scLean ", utils::packageVersion("scLean"), "\n",
     "  Memory-efficient single-cell analysis\n",
-    "  Default max RAM: ", .get_max_ram_bytes() / 1024^2, " MB\n",
-    "  Use SetMaxRAM() to adjust."
+    "  RAM managed automatically (free: ",
+    if (is.na(free_mb)) "unknown" else paste0("~", free_mb, " MB"), ")\n"
   )
+
+  cap <- getOption("scLean.max_ram")
+  if (!is.null(cap)) {
+    msg <- paste0(msg, "  User cap: ", round(cap / 1048576), " MB\n")
+  }
+  msg <- paste0(msg, "  Use SetMaxRAM() to set a memory ceiling.")
+
+  packageStartupMessage(msg)
 }
