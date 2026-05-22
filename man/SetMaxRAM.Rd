@@ -2,22 +2,25 @@
 % Please edit documentation in R/chunk-control.R
 \name{SetMaxRAM}
 \alias{SetMaxRAM}
-\title{Set maximum RAM scLean is allowed to use (in MB)}
+\title{Set a memory ceiling for scLean (in MB)}
 \usage{
-SetMaxRAM(max_ram = 2048)
+SetMaxRAM(max_ram = NULL)
 }
 \arguments{
-\item{max_ram}{Memory limit in megabytes (default: 2048)}
+\item{max_ram}{Memory ceiling in megabytes. Set \code{NULL} to
+remove the ceiling and revert to fully automatic management.}
 }
 \value{
-The memory limit in bytes, invisibly
+The ceiling in bytes, invisibly (\code{NULL} if removed).
 }
 \description{
-Set maximum RAM scLean is allowed to use (in MB)
+scLean auto-detects free system RAM on every operation. Use
+\code{SetMaxRAM} to optionally cap the amount used. The scheduler
+will never exceed \code{min(free RAM, cap)}.
 }
 \examples{
-SetMaxRAM(4096)
-SetMaxRAM()  # restore default 2048 MB
+SetMaxRAM(4096)           # cap at 4 GB (never exceeds free RAM)
+SetMaxRAM()               # remove ceiling, fully automatic
 }
 \seealso{
 \code{\link{SetChunkSize}}, \code{\link{MemoryReport}}
