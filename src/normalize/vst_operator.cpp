@@ -33,11 +33,17 @@ void VSTOperator::compute_mean_variance(
     auto cfg = scheduler.schedule(n_genes, n_cells, OperationType::VST, n_threads);
 
     bool oom_occurred = false;
-    #pragma omp parallel num_threads(n_threads) shared(oom_occurred)
+    #pragma omp parallel if(n_threads > 1) num_threads(n_threads) shared(oom_occurred)
     {
-        hid_t t_fid = (n_threads > 1) ? file->open_thread_handle(FileMode::ReadOnly) : -1;
-        auto t_mat = std::unique_ptr<HDF5CSCMatrix>(
-            new HDF5CSCMatrix(file, input_group, t_fid));
+        // Serialize HDF5CSCMatrix construction to avoid H5Dopen2 race
+        // when multiple threads open the same datasets from different file handles.
+        std::unique_ptr<HDF5CSCMatrix> t_mat;
+        #pragma omp critical
+        {
+            hid_t t_fid = (n_threads > 1) ? file->open_thread_handle(FileMode::ReadOnly) : -1;
+            t_mat = std::unique_ptr<HDF5CSCMatrix>(
+                new HDF5CSCMatrix(file, input_group, t_fid));
+        }
 
         std::vector<double> buf;
         #pragma omp for schedule(dynamic)

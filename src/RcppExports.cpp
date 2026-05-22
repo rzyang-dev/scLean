@@ -341,6 +341,16 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cpp_get_threads
+int cpp_get_threads();
+RcppExport SEXP _scLean_cpp_get_threads() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(cpp_get_threads());
+    return rcpp_result_gen;
+END_RCPP
+}
 // cpp_resource_snapshot
 Rcpp::List cpp_resource_snapshot();
 RcppExport SEXP _scLean_cpp_resource_snapshot() {
@@ -420,6 +430,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_scLean_cpp_wall_time_ns", (DL_FUNC) &_scLean_cpp_wall_time_ns, 0},
     {"_scLean_suppress_hdf5_errors", (DL_FUNC) &_scLean_suppress_hdf5_errors, 0},
     {"_scLean_cpp_set_threads", (DL_FUNC) &_scLean_cpp_set_threads, 1},
+    {"_scLean_cpp_get_threads", (DL_FUNC) &_scLean_cpp_get_threads, 0},
     {"_scLean_cpp_resource_snapshot", (DL_FUNC) &_scLean_cpp_resource_snapshot, 0},
     {"_scLean_cpp_bottleneck_type", (DL_FUNC) &_scLean_cpp_bottleneck_type, 0},
     {"_scLean_cpp_set_max_dense_chunk_mb", (DL_FUNC) &_scLean_cpp_set_max_dense_chunk_mb, 1},

@@ -212,12 +212,13 @@ SetVerbose <- function(verbose = TRUE) {
 #' (NormalizeData, ScaleData, FindVariableFeatures, FindMarkers, BuildSNN).
 #' Affects per-thread HDF5 read handles; writes are always serialized.
 #'
-#' @param n  Number of threads (default: detected core count). Pass NULL to
-#'   restore the default single-threaded mode.
+#' @param n  Number of threads. Use 0 to auto-detect (physical cores).
+#'   Pass NULL to restore the default single-threaded mode.
 #' @return The thread count, invisibly (NULL if threads were unset)
 #' @examples
 #' SetThreads(2)
-#' SetThreads()  # restore default single-threaded mode
+#' SetThreads(0)  # auto-detect
+#' SetThreads()   # restore default single-threaded mode
 #' @seealso \code{\link{SetChunkSize}}, \code{\link{SetMaxRAM}}
 #' @export
 SetThreads <- function(n = NULL) {
@@ -227,7 +228,11 @@ SetThreads <- function(n = NULL) {
     return(invisible(NULL))
   }
   n <- as.integer(n)
-  if (is.na(n) || n < 1) stop("n must be a positive integer")
+  if (is.na(n) || n < 0) stop("n must be a non-negative integer")
+  if (n == 0L) {
+    snap <- cpp_resource_snapshot()
+    n <- max(1L, as.integer(snap$physical_cores))
+  }
   options(scLean.threads = n)
   cpp_set_threads(n)
   invisible(n)

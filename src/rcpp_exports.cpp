@@ -756,6 +756,11 @@ void cpp_set_threads(int n) {
 }
 
 // [[Rcpp::export]]
+int cpp_get_threads() {
+    return static_cast<int>(sclean::get_num_threads());
+}
+
+// [[Rcpp::export]]
 Rcpp::List cpp_resource_snapshot() {
     ResourceMonitor monitor;
     auto snap = monitor.snapshot();

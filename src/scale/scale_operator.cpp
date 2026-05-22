@@ -39,14 +39,20 @@ void ScaleOperator::compute_moments_row_chunked(
         std::vector<double> buf;
         hid_t t_fid = (n_threads > 1) ? file->open_thread_handle(FileMode::ReadOnly) : file->file_id();
 
+        // Serialize CSC matrix construction to avoid H5Dopen2 race
+        std::unique_ptr<HDF5CSCMatrix> t_mat;
+        #pragma omp critical
+        {
+            t_mat = file->open_csc_matrix(input_group, t_fid);
+        }
+
         #pragma omp for schedule(dynamic)
         for (int64 r = 0; r < n_genes; r += cfg.chunk_size) {
             if (oom_occurred) continue;
             int64 rc = std::min(cfg.chunk_size, n_genes - r);
             try {
                 buf.resize(rc * n_cells);
-                auto mat = file->open_csc_matrix(input_group, t_fid);
-                mat->read_rows(buf.data(), r, rc, 0, n_cells);
+                t_mat->read_rows(buf.data(), r, rc, 0, n_cells);
             } catch (const std::bad_alloc&) {
                 #pragma omp critical
                 { oom_occurred = true; }

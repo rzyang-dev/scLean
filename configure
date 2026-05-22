@@ -7,15 +7,29 @@ HDF5_INCLUDE=`${R_HOME}/bin/Rscript -e "cat(system.file('include', package='Rhdf
 HDF5_CXX_LIBS=`${R_HOME}/bin/Rscript -e "cat(Rhdf5lib::pkgconfig('PKG_CXX_LIBS'))" 2>/dev/null`
 HDF5_C_LIBS=`${R_HOME}/bin/Rscript -e "cat(Rhdf5lib::pkgconfig('PKG_C_LIBS'))" 2>/dev/null`
 
-# Check for OpenMP (gcc-style)
+# Check for OpenMP support.
+# On macOS, R's SHLIB_OPENMP_CXXFLAGS is empty even when libomp is
+# available (brew install libomp).  We detect with explicit flags.
 OPENMP_CXXFLAGS=""
 OPENMP_LIBS=""
-if echo '#include <omp.h>' | ${CXX} -fopenmp -x c++ -c - -o /dev/null 2>/dev/null; then
-    OPENMP_CXXFLAGS='$(SHLIB_OPENMP_CXXFLAGS)'
-    OPENMP_LIBS='$(SHLIB_OPENMP_CXXFLAGS)'
-elif echo '#include <omp.h>' | ${CXX} -Xclang -fopenmp -x c++ -c - -o /dev/null 2>/dev/null; then
-    OPENMP_CXXFLAGS='$(SHLIB_OPENMP_CXXFLAGS)'
-    OPENMP_LIBS='$(SHLIB_OPENMP_CXXFLAGS)'
+
+OMP_TEST_SRC='#include <omp.h>
+int main() { return 0; }'
+
+# 1) GCC/Linux: -fopenmp
+if echo "$OMP_TEST_SRC" | ${CXX} -fopenmp -x c++ -c - -o /dev/null 2>/dev/null; then
+    OPENMP_CXXFLAGS='-fopenmp'
+    OPENMP_LIBS='-fopenmp'
+
+# 2) Apple Clang + Homebrew libomp (Apple Silicon)
+elif echo "$OMP_TEST_SRC" | ${CXX} -I/opt/homebrew/opt/libomp/include -Xclang -fopenmp -x c++ -c - -o /dev/null 2>/dev/null; then
+    OPENMP_CXXFLAGS='-I/opt/homebrew/opt/libomp/include -Xclang -fopenmp'
+    OPENMP_LIBS='-L/opt/homebrew/opt/libomp/lib -lomp'
+
+# 3) Apple Clang + Homebrew libomp (Intel)
+elif echo "$OMP_TEST_SRC" | ${CXX} -I/usr/local/opt/libomp/include -Xclang -fopenmp -x c++ -c - -o /dev/null 2>/dev/null; then
+    OPENMP_CXXFLAGS='-I/usr/local/opt/libomp/include -Xclang -fopenmp'
+    OPENMP_LIBS='-L/usr/local/opt/libomp/lib -lomp'
 fi
 
 # Add macOS Homebrew library paths if they exist
@@ -36,7 +50,7 @@ ALL_OBJECTS="${TOP_OBJECTS} ${SUBDIR_OBJECTS}"
 
 # Write Makevars
 cat > src/Makevars << EOF
-PKG_CXXFLAGS = ${OPENMP_CXXFLAGS} -I. -I${HDF5_INCLUDE}
+PKG_CXXFLAGS = ${OPENMP_CXXFLAGS} -DEIGEN_DONT_PARALLELIZE -I. -I${HDF5_INCLUDE}
 PKG_LIBS = ${HDF5_CXX_LIBS} ${OPENMP_LIBS} ${EXTRA_LIBS} -lz
 OBJECTS = ${ALL_OBJECTS}
 EOF

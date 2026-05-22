@@ -108,10 +108,14 @@ hid_t HDF5File::open_thread_handle(FileMode mode) {
         auto it = cache.find(key);
         if (it != cache.end() && it->second >= 0) return it->second;
 
-        hid_t h = h5_open(path_, FileMode::ReadOnly);
+        // Serialize H5Fopen to avoid internal HDF5 race
+        hid_t h;
+        {
+            std::lock_guard<std::mutex> lock(handle_mutex_);
+            h = h5_open(path_, FileMode::ReadOnly);
+            thread_handles_.push_back({h, FileMode::ReadOnly});
+        }
         cache[key] = h;
-        std::lock_guard<std::mutex> lock(handle_mutex_);
-        thread_handles_.push_back({h, FileMode::ReadOnly});
         return h;
     }
     return file_id_;
@@ -173,6 +177,9 @@ void HDF5File::flush() {
 void HDF5File::set_attr(const std::string& path, const std::string& name, int64 value) {
     hid_t obj = H5Oopen(file_id_, path.c_str(), H5P_DEFAULT);
     if (obj < 0) { warn_obj_open(path.c_str()); return; }
+    if (H5Aexists(obj, name.c_str()) > 0) {
+        H5Adelete(obj, name.c_str());
+    }
     hsize_t dims[1] = {1};
     hid_t space = H5Screate_simple(1, dims, nullptr);
     hid_t attr = H5Acreate2(obj, name.c_str(), H5T_NATIVE_INT64, space,
@@ -187,6 +194,9 @@ void HDF5File::set_attr(const std::string& path, const std::string& name, int64 
 void HDF5File::set_attr_double(const std::string& path, const std::string& name, double value) {
     hid_t obj = H5Oopen(file_id_, path.c_str(), H5P_DEFAULT);
     if (obj < 0) { warn_obj_open(path.c_str()); return; }
+    if (H5Aexists(obj, name.c_str()) > 0) {
+        H5Adelete(obj, name.c_str());
+    }
     hsize_t dims[1] = {1};
     hid_t space = H5Screate_simple(1, dims, nullptr);
     hid_t attr = H5Acreate2(obj, name.c_str(), H5T_NATIVE_DOUBLE, space,
@@ -202,6 +212,9 @@ void HDF5File::set_attr_string(const std::string& path, const std::string& name,
                                 const std::string& value) {
     hid_t obj = H5Oopen(file_id_, path.c_str(), H5P_DEFAULT);
     if (obj < 0) { warn_obj_open(path.c_str()); return; }
+    if (H5Aexists(obj, name.c_str()) > 0) {
+        H5Adelete(obj, name.c_str());
+    }
     hid_t strtype = H5Tcopy(H5T_C_S1);
     H5Tset_size(strtype, value.size() + 1);
     hsize_t dims[1] = {1};

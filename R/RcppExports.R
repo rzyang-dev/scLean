@@ -101,6 +101,10 @@ cpp_set_threads <- function(n) {
     invisible(.Call(`_scLean_cpp_set_threads`, n))
 }
 
+cpp_get_threads <- function() {
+    .Call(`_scLean_cpp_get_threads`)
+}
+
 cpp_resource_snapshot <- function() {
     .Call(`_scLean_cpp_resource_snapshot`)
 }

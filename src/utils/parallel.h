@@ -7,6 +7,8 @@
 #include <omp.h>
 #endif
 
+#include <Eigen/Core>
+
 namespace sclean {
 
 // Global thread count, settable from R via SetThreads().
@@ -21,6 +23,9 @@ inline int64 get_num_threads() {
 inline void set_num_threads(int64 n) {
     if (n < 1) n = 1;
     g_num_threads = n;
+    // Prevent Eigen from spawning its own OpenMP threads which
+    // conflict with external BLAS threading (especially on macOS).
+    Eigen::setNbThreads(static_cast<int>(n));
 #ifdef _OPENMP
     omp_set_num_threads(static_cast<int>(n));
 #else
