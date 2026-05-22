@@ -5,6 +5,8 @@
 ^\.Rbuildignore$
 ^\.github$
 
+^data$
+^benchmark$
 ^tmp$
 ^job-logs$
 ^src/.*\.o$

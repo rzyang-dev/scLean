@@ -53,6 +53,8 @@ ehthumbs.db
 
 # internal
 .claude/
+data/
+benchmark/
 tmp/
 job-logs/
 cran-comments.md
