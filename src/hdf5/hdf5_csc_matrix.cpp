@@ -93,6 +93,7 @@ void HDF5CSCMatrix::build_row_ptr(int64 n_rows, int64 n_cols,
 HDF5CSCMatrix::HDF5CSCMatrix(HDF5File* file, const std::string& group_path,
                                hid_t thread_file)
     : file_(file), group_path_(group_path),
+      n_rows_(0), n_cols_(0), nnz_(0),
       dset_data_(-1), dset_indices_(-1), dset_indptr_(-1), dset_row_ptr_(-1),
       thread_file_(thread_file) {
 
@@ -169,8 +170,9 @@ HDF5CSCMatrix::HDF5CSCMatrix(HDF5File* file, const std::string& group_path,
                                const std::vector<int64>& indptr,
                                int64 n_rows, int64 n_cols, int compression)
     : file_(file), group_path_(group_path),
+      n_rows_(n_rows), n_cols_(n_cols), nnz_(static_cast<int64>(data.size())),
       dset_data_(-1), dset_indices_(-1), dset_indptr_(-1), dset_row_ptr_(-1),
-      thread_file_(-1), n_rows_(n_rows), n_cols_(n_cols), nnz_(static_cast<int64>(data.size())) {
+      thread_file_(-1) {
 
     hid_t fid = file_->file_id();
 
