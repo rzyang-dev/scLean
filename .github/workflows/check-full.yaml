@@ -1,11 +1,18 @@
-name: R CMD Check
+name: R CMD Check & Release
 
 on:
   push:
     branches: [main, master]
+    tags: ["v*"]
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   check:
@@ -46,7 +53,8 @@ jobs:
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install hdf5 gettext
+          brew list hdf5 &>/dev/null || brew install hdf5
+          brew list gettext &>/dev/null || brew install gettext
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
@@ -54,28 +62,65 @@ jobs:
           r-version: ${{ matrix.config.r }}
           use-public-rspm: true
 
-      - name: Restore cached R packages
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-${{ matrix.config.r }}-${{ hashFiles('DESCRIPTION') }}
-          restore-keys: |
-            ${{ runner.os }}-r-${{ matrix.config.r }}-
-
-      - name: Install BiocManager
-        run: |
-          Rscript -e 'install.packages("BiocManager", repos = "https://cloud.r-project.org", quiet = TRUE)'
-
       - name: Install R dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: |
-            any::rcmdcheck
+          extra-packages: any::rcmdcheck
           needs: check
-          cache: false
+          cache: true
 
       - name: Run R CMD check
         uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
           error-on: '"warning"'
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
+      _R_CHECK_CRAN_INCOMING_: false
+      _R_CHECK_FORCE_SUGGESTS_: false
+      R_LIBS_USER: ${{ github.workspace }}/.R/library
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libhdf5-dev libcurl4-openssl-dev
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          needs: check
+          cache: true
+
+      - name: Build source package
+        run: |
+          R CMD build --no-manual .
+          echo "PKG_TARBALL=$(ls scLean_*.tar.gz)" >> $GITHUB_ENV
+          echo "PKG_VERSION=$(echo $(ls scLean_*.tar.gz) | sed 's/scLean_//;s/\.tar\.gz//')" >> $GITHUB_ENV
+
+      - name: Extract release notes
+        run: |
+          awk '/^# scLean /{if(++c>1) exit} c' NEWS.md > /tmp/release_body.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: /tmp/release_body.md
+          files: scLean_*.tar.gz
+          name: "scLean ${{ env.PKG_VERSION }}"

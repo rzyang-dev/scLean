@@ -40,4 +40,12 @@ Suggests:
     rmarkdown,
     leidenbase
 VignetteBuilder: knitr
+Config/Needs/check:
+    testthat,
+    rcmdcheck,
+    knitr,
+    rmarkdown,
+    BiocStyle,
+    mclust,
+    leidenbase
 Config/roxygen2/version: 8.0.0
