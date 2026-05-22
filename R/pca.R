@@ -70,12 +70,28 @@ RunPCA.scLeanAssay <- function(
     stop("object must be a Seurat object or scLeanAssay")
   }
 
+  if (is.null(features)) {
+    if (inherits(object, "Seurat")) {
+      features <- tryCatch(SeuratObject::VariableFeatures(object), error = function(e) character(0))
+    }
+    if (length(features) == 0) {
+      features <- SeuratObject::VariableFeatures(sc_assay)
+    }
+  }
+
+  feature_indices <- integer(0)
+  if (length(features) > 0) {
+    all_genes <- read_strings_from_hdf5(sc_assay@hdf5_path, "/features/names")
+    feature_indices <- as.integer(which(all_genes %in% features) - 1L)
+  }
+
   cpp_pca(
     hdf5_path       = sc_assay@hdf5_path,
     assay_group     = sc_assay@hdf5_group,
     npcs            = as.integer(npcs),
     tol             = tol,
-    max_iter        = as.integer(max.iter)
+    max_iter        = as.integer(max.iter),
+    feature_indices = feature_indices
   )
 
   # Read PCA results and add as DimReduc

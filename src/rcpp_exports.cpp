@@ -436,7 +436,8 @@ List cpp_vst(std::string hdf5_path, std::string assay_group, int n_top) {
 
 // [[Rcpp::export]]
 List cpp_pca(std::string hdf5_path, std::string assay_group,
-             int npcs, double tol, int max_iter) {
+             int npcs, double tol, int max_iter,
+             std::vector<int> feature_indices = std::vector<int>()) {
     int64 t0 = sclean::wall_time_ns();
     int64 rss0 = sclean::current_rss_bytes();
 
@@ -467,10 +468,24 @@ List cpp_pca(std::string hdf5_path, std::string assay_group,
     }
 
     auto mat = file.open_csc_matrix(input_group);
+    int64 n_genes = mat->n_rows();
 
     PCAOperator op(npcs, true, false, tol, max_iter);
     int n_threads = get_num_threads();
-    PCAResult res = op.run(mat.get(), scheduler, n_threads, p_means, p_sds);
+    PCAResult res;
+    if (!feature_indices.empty()) {
+        std::vector<int64> indices64(feature_indices.begin(), feature_indices.end());
+        res = op.run_on_subset(mat.get(), indices64, scheduler, n_threads);
+        if (res.loadings.rows() < n_genes) {
+            Eigen::MatrixXd full_loadings = Eigen::MatrixXd::Zero(n_genes, res.loadings.cols());
+            for (int64 i = 0; i < static_cast<int64>(indices64.size()); ++i) {
+                full_loadings.row(indices64[i]) = res.loadings.row(i);
+            }
+            res.loadings = full_loadings;
+        }
+    } else {
+        res = op.run(mat.get(), scheduler, n_threads, p_means, p_sds);
+    }
 
     // Write PCA results to HDF5
     std::string pca_group = assay_group + "/reductions/pca";

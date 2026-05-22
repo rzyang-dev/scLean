@@ -65,8 +65,8 @@ cpp_vst <- function(hdf5_path, assay_group, n_top) {
     .Call(`_scLean_cpp_vst`, hdf5_path, assay_group, n_top)
 }
 
-cpp_pca <- function(hdf5_path, assay_group, npcs, tol, max_iter) {
-    .Call(`_scLean_cpp_pca`, hdf5_path, assay_group, npcs, tol, max_iter)
+cpp_pca <- function(hdf5_path, assay_group, npcs, tol, max_iter, feature_indices) {
+    .Call(`_scLean_cpp_pca`, hdf5_path, assay_group, npcs, tol, max_iter, feature_indices)
 }
 
 cpp_find_neighbors <- function(embeddings, k, metric, n_trees, hdf5_path, assay_group) {

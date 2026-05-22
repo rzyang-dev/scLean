@@ -223,8 +223,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_pca
-List cpp_pca(std::string hdf5_path, std::string assay_group, int npcs, double tol, int max_iter);
-RcppExport SEXP _scLean_cpp_pca(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP npcsSEXP, SEXP tolSEXP, SEXP max_iterSEXP) {
+List cpp_pca(std::string hdf5_path, std::string assay_group, int npcs, double tol, int max_iter, std::vector<int> feature_indices);
+RcppExport SEXP _scLean_cpp_pca(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP npcsSEXP, SEXP tolSEXP, SEXP max_iterSEXP, SEXP feature_indicesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -233,7 +233,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type npcs(npcsSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_pca(hdf5_path, assay_group, npcs, tol, max_iter));
+    Rcpp::traits::input_parameter< std::vector<int> >::type feature_indices(feature_indicesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_pca(hdf5_path, assay_group, npcs, tol, max_iter, feature_indices));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -410,7 +411,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_scLean_cpp_normalize", (DL_FUNC) &_scLean_cpp_normalize, 6},
     {"_scLean_cpp_scale", (DL_FUNC) &_scLean_cpp_scale, 6},
     {"_scLean_cpp_vst", (DL_FUNC) &_scLean_cpp_vst, 3},
-    {"_scLean_cpp_pca", (DL_FUNC) &_scLean_cpp_pca, 5},
+    {"_scLean_cpp_pca", (DL_FUNC) &_scLean_cpp_pca, 6},
     {"_scLean_cpp_find_neighbors", (DL_FUNC) &_scLean_cpp_find_neighbors, 6},
     {"_scLean_cpp_find_clusters", (DL_FUNC) &_scLean_cpp_find_clusters, 5},
     {"_scLean_cpp_find_markers", (DL_FUNC) &_scLean_cpp_find_markers, 8},
