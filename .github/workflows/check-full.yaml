@@ -81,13 +81,17 @@ jobs:
         env:
           SCLEAN_CACHE_DIR: ${{ runner.temp }}/sclean-cache
         run: |
-          data_dir="$SCLEAN_CACHE_DIR/filtered_gene_bc_matrices/hg19"
+          SCLEAN_DIR="$SCLEAN_CACHE_DIR"
+          if command -v cygpath &>/dev/null; then
+            SCLEAN_DIR=$(cygpath -u "$SCLEAN_CACHE_DIR")
+          fi
+          data_dir="$SCLEAN_DIR/filtered_gene_bc_matrices/hg19"
           if [ ! -d "$data_dir" ]; then
-            mkdir -p "$SCLEAN_CACHE_DIR"
+            mkdir -p "$SCLEAN_DIR"
             curl -fSL --retry 3 --retry-delay 30 \
               "https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz" \
-              -o "$SCLEAN_CACHE_DIR/pbmc3k.tar.gz"
-            tar -xzf "$SCLEAN_CACHE_DIR/pbmc3k.tar.gz" -C "$SCLEAN_CACHE_DIR"
+              -o "$SCLEAN_DIR/pbmc3k.tar.gz"
+            tar -xzf "$SCLEAN_DIR/pbmc3k.tar.gz" -C "$SCLEAN_DIR"
           fi
           echo "SCLEAN_CACHE_DIR=$SCLEAN_CACHE_DIR" >> $GITHUB_ENV
 
