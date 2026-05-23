@@ -27,6 +27,29 @@
 #' @seealso \code{\link{NormalizeData.scLeanAssay}},
 #'   \code{\link{RunPCA.Seurat}}
 #' @export
+ScaleData.Seurat <- function(
+    object,
+    features = NULL,
+    vars.to.regress = NULL,
+    do.scale = TRUE,
+    do.center = TRUE,
+    chunk.size = NULL,
+    in_memory = FALSE,
+    ...
+) {
+  sc_assay <- extract_sc_assay(object)
+  if (!is.null(sc_assay)) {
+    return(ScaleData.scLeanAssay(object, features = features,
+      vars.to.regress = vars.to.regress, do.scale = do.scale,
+      do.center = do.center, chunk.size = chunk.size,
+      in_memory = in_memory, ...))
+  }
+  .seurat_original$ScaleData.Seurat(object, features = features,
+    vars.to.regress = vars.to.regress, do.scale = do.scale,
+    do.center = do.center, ...)
+}
+
+#' @export
 ScaleData.scLeanAssay <- function(
     object,
     features = NULL,
@@ -37,28 +60,14 @@ ScaleData.scLeanAssay <- function(
     in_memory = FALSE,
     ...
 ) {
-  if (inherits(object, "scLeanAssay")) {
-    sc_assay <- object
-  } else if (inherits(object, "Seurat")) {
-    assay <- SeuratObject::DefaultAssay(object)
-    sc_assay <- object@assays[[assay]]
-    if (!inherits(sc_assay, "scLeanAssay")) {
-      return(Seurat::ScaleData(object, features = features,
-        vars.to.regress = vars.to.regress,
-        do.scale = do.scale, do.center = do.center, ...))
-    }
-  } else {
-    stop("object must be a Seurat object or scLeanAssay")
-  }
-
-  chunk <- chunk.size %||% .get_chunk_override() %||% -1
+  sc_assay <- extract_sc_assay(object)
 
   cpp_scale(
     hdf5_path       = sc_assay@hdf5_path,
     assay_group     = sc_assay@hdf5_group,
     do_scale        = do.scale,
     do_center       = do.center,
-    chunk_size      = as.integer(chunk),
+    chunk_size      = as.integer(resolve_chunk_size(chunk.size)),
     in_memory       = in_memory
   )
 
@@ -68,9 +77,5 @@ ScaleData.scLeanAssay <- function(
     sc_assay@hdf5_group, "/features/residual_mean"
   )
 
-  if (inherits(object, "Seurat")) {
-    object@assays[[assay]] <- sc_assay
-    return(object)
-  }
-  return(sc_assay)
+  reinstall_assay(object, sc_assay)
 }

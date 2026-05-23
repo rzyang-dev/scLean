@@ -28,8 +28,8 @@ test_that("SetChunkSize validates input", {
 })
 
 test_that("SetThreads validates input", {
-  expect_error(SetThreads(0), "n must be a positive integer")
-  expect_error(SetThreads(-1), "n must be a positive integer")
+  expect_silent(SetThreads(0))  # 0 = auto-detect cores
+  expect_error(SetThreads(-1), "n must be a non-negative integer")
   expect_silent(SetThreads(2))
   expect_silent(SetThreads(NULL))
 })

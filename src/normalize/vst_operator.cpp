@@ -1,11 +1,11 @@
 #include "vst_operator.h"
+#include "normalize_internal.h"
 #include "hdf5/hdf5_file.h"
 #include "hdf5/hdf5_csc_matrix.h"
 #include "utils/progress.h"
 #include "utils/resource_monitor.h"
 #include <cmath>
 #include <algorithm>
-#include <numeric>
 #include <hdf5.h>
 
 #ifdef _OPENMP
@@ -25,10 +25,7 @@ void VSTOperator::compute_mean_variance(
     std::vector<double>& means, std::vector<double>& variances,
     ChunkScheduler& scheduler, int n_threads) {
 
-    means.assign(n_genes, 0.0);
-    variances.assign(n_genes, 0.0);
-    std::vector<double> M2(n_genes, 0.0);
-    std::vector<int64> counts(n_genes, 0);
+    std::vector<GeneWelford> global_stats(n_genes);
 
     auto cfg = scheduler.schedule(n_genes, n_cells, OperationType::VST, n_threads);
 
@@ -36,7 +33,6 @@ void VSTOperator::compute_mean_variance(
     #pragma omp parallel if(n_threads > 1) num_threads(n_threads) shared(oom_occurred)
     {
         // Serialize HDF5CSCMatrix construction to avoid H5Dopen2 race
-        // when multiple threads open the same datasets from different file handles.
         std::unique_ptr<HDF5CSCMatrix> t_mat;
         #pragma omp critical
         {
@@ -44,6 +40,9 @@ void VSTOperator::compute_mean_variance(
             t_mat = std::unique_ptr<HDF5CSCMatrix>(
                 new HDF5CSCMatrix(file, input_group, t_fid));
         }
+
+        // Per-thread local accumulators
+        std::vector<GeneWelford> local_stats(n_genes);
 
         std::vector<double> buf;
         #pragma omp for schedule(dynamic)
@@ -59,33 +58,14 @@ void VSTOperator::compute_mean_variance(
                 continue;
             }
 
-            for (int64 i = 0; i < n_genes; ++i) {
-                double mean = 0.0;
-                double m2 = 0.0;
-                int64 cnt = 0;
+            // Pure computation: accumulate stats from dense chunk
+            accumulate_dense_chunk(buf.data(), n_genes, cc, local_stats);
+        }
 
-                for (int64 j = 0; j < cc; ++j) {
-                    double x = buf[i * cc + j];
-                    cnt++;
-                    double delta = x - mean;
-                    mean += delta / cnt;
-                    double delta2 = x - mean;
-                    m2 += delta * delta2;
-                }
-
-                #pragma omp critical
-                {
-                    double old_mean = means[i];
-                    double old_m2 = M2[i];
-                    int64 old_n = counts[i];
-
-                    int64 new_n = old_n + cnt;
-                    double delta = mean - old_mean;
-                    means[i] = old_mean + delta * cnt / new_n;
-                    M2[i] = old_m2 + m2 + delta * delta * old_n * cnt / new_n;
-                    counts[i] = new_n;
-                }
-            }
+        // Merge thread-local stats into global
+        #pragma omp critical
+        {
+            merge_stats_arrays(local_stats, global_stats, n_genes);
         }
     }
 
@@ -93,9 +73,8 @@ void VSTOperator::compute_mean_variance(
         throw std::bad_alloc();
     }
 
-    for (int64 i = 0; i < n_genes; ++i) {
-        variances[i] = (counts[i] > 1) ? M2[i] / (counts[i] - 1) : 0.0;
-    }
+    // Pure computation: extract means and variances
+    finalize_stats_arrays(global_stats, means, variances);
 }
 
 // --- Sparse path: read CSC raw data, no dense buffer ---
@@ -106,10 +85,7 @@ void VSTOperator::compute_mean_variance_sparse(
     std::vector<double>& means, std::vector<double>& variances,
     ChunkScheduler& scheduler, int n_threads) {
 
-    means.assign(n_genes, 0.0);
-    variances.assign(n_genes, 0.0);
-    std::vector<double> M2(n_genes, 0.0);
-    std::vector<int64> counts(n_genes, 0);
+    std::vector<GeneWelford> global_stats(n_genes);
 
     auto cfg = scheduler.schedule(n_genes, n_cells, OperationType::VST, n_threads);
 
@@ -122,9 +98,7 @@ void VSTOperator::compute_mean_variance_sparse(
         hid_t t_fid = (n_threads > 1) ? file->open_thread_handle(FileMode::ReadOnly) : file->file_id();
 
         // Per-thread local accumulators
-        std::vector<double> local_means(n_genes, 0.0);
-        std::vector<double> local_M2(n_genes, 0.0);
-        std::vector<int64> local_counts(n_genes, 0);
+        std::vector<GeneWelford> local_stats(n_genes);
 
         #pragma omp for schedule(dynamic)
         for (int64 c = 0; c < n_cells; c += cfg.chunk_size) {
@@ -169,167 +143,20 @@ void VSTOperator::compute_mean_variance_sparse(
                 H5Sclose(ms);
             }
 
-            // Welford per column, processing only non-zero entries
-            for (int64 j = 0; j < cc; ++j) {
-                int64 col_start = ip[j] - ip[0];
-                int64 col_end = ip[j + 1] - ip[0];
-
-                for (int64 k = col_start; k < col_end; ++k) {
-                    int64 gene = idxs[k];
-                    double x = vals[k];
-
-                    int64& cnt = local_counts[gene];
-                    double& mean = local_means[gene];
-                    double& m2 = local_M2[gene];
-
-                    cnt++;
-                    double delta = x - mean;
-                    mean += delta / cnt;
-                    double delta2 = x - mean;
-                    m2 += delta * delta2;
-                }
-            }
+            // Pure computation: accumulate stats from sparse chunk
+            accumulate_sparse_chunk(vals.data(), idxs.data(), ip.data(),
+                                    cc, local_stats);
         }
 
-        // Merge per-thread accumulators into global
+        // Merge thread-local stats into global
         #pragma omp critical
         {
-            for (int64 i = 0; i < n_genes; ++i) {
-                if (local_counts[i] == 0) continue;
-                double old_mean = means[i];
-                double old_m2 = M2[i];
-                int64 old_n = counts[i];
-
-                int64 new_n = old_n + local_counts[i];
-                double delta = local_means[i] - old_mean;
-                means[i] = old_mean + delta * local_counts[i] / new_n;
-                M2[i] = old_m2 + local_M2[i] + delta * delta * old_n * local_counts[i] / new_n;
-                counts[i] = new_n;
-            }
+            merge_stats_arrays(local_stats, global_stats, n_genes);
         }
     }
 
-    for (int64 i = 0; i < n_genes; ++i) {
-        variances[i] = (counts[i] > 1) ? M2[i] / (counts[i] - 1) : 0.0;
-    }
-}
-
-void VSTOperator::fit_loess_binned(
-    const std::vector<double>& log_means,
-    const std::vector<double>& log_variances,
-    std::vector<double>& fitted,
-    int n_bins, double span) {
-
-    int64 n = static_cast<int64>(log_means.size());
-    fitted.resize(n);
-
-    // Filter valid entries
-    std::vector<int64> valid_idx;
-    for (int64 i = 0; i < n; ++i) {
-        if (std::isfinite(log_means[i]) && std::isfinite(log_variances[i])) {
-            valid_idx.push_back(i);
-        }
-    }
-
-    if (valid_idx.empty()) {
-        std::fill(fitted.begin(), fitted.end(), 0.0);
-        return;
-    }
-
-    // Sort valid entries by log_mean
-    std::sort(valid_idx.begin(), valid_idx.end(),
-              [&](int64 a, int64 b) { return log_means[a] < log_means[b]; });
-
-    // Bin and compute median variance per bin
-    int64 n_valid = static_cast<int64>(valid_idx.size());
-    int64 per_bin = std::max(static_cast<int64>(1), n_valid / n_bins);
-
-    std::vector<double> bin_centers, bin_variances;
-
-    for (int64 b = 0; b < n_bins; ++b) {
-        int64 start = b * per_bin;
-        int64 end = std::min(start + per_bin, n_valid);
-        if (start >= n_valid) break;
-
-        double sum_mean = 0.0;
-        std::vector<double> bin_vars;
-        for (int64 k = start; k < end; ++k) {
-            sum_mean += log_means[valid_idx[k]];
-            bin_vars.push_back(log_variances[valid_idx[k]]);
-        }
-
-        // Median variance per bin
-        std::sort(bin_vars.begin(), bin_vars.end());
-        double med_var = bin_vars[bin_vars.size() / 2];
-
-        bin_centers.push_back(sum_mean / (end - start));
-        bin_variances.push_back(med_var);
-    }
-
-    // Linear interpolation across bins
-    for (int64 i = 0; i < n; ++i) {
-        if (!std::isfinite(log_means[i])) {
-            fitted[i] = 0.0;
-            continue;
-        }
-
-        double lm = log_means[i];
-
-        // Find surrounding bins
-        if (lm <= bin_centers.front()) {
-            fitted[i] = bin_variances.front();
-        } else if (lm >= bin_centers.back()) {
-            fitted[i] = bin_variances.back();
-        } else {
-            // Linear interpolation between bins
-            for (size_t b = 0; b < bin_centers.size() - 1; ++b) {
-                if (lm >= bin_centers[b] && lm <= bin_centers[b + 1]) {
-                    double t = (lm - bin_centers[b]) /
-                               (bin_centers[b + 1] - bin_centers[b]);
-                    fitted[i] = bin_variances[b] * (1.0 - t) +
-                                bin_variances[b + 1] * t;
-                    break;
-                }
-            }
-        }
-    }
-}
-
-void VSTOperator::select_top_features(
-    const std::vector<double>& vst_variances,
-    std::vector<int8_t>& variable,
-    int n_select) {
-
-    int64 n = static_cast<int64>(vst_variances.size());
-    variable.assign(n, 0);
-
-    if (n_select <= 0) return;
-
-    if (n_select >= n) {
-        std::fill(variable.begin(), variable.end(), 1);
-        return;
-    }
-
-    // Partial sort to find top N
-    std::vector<std::pair<double, int64>> ranked;
-    ranked.reserve(n);
-    for (int64 i = 0; i < n; ++i) {
-        if (std::isfinite(vst_variances[i])) {
-            ranked.emplace_back(vst_variances[i], i);
-        }
-    }
-
-    if (ranked.empty()) return;
-
-    int64 actual_select = std::min(static_cast<int64>(n_select),
-                                    static_cast<int64>(ranked.size()));
-
-    std::nth_element(ranked.begin(), ranked.begin() + actual_select,
-                     ranked.end(), std::greater<>{});
-
-    for (int64 k = 0; k < actual_select; ++k) {
-        variable[ranked[k].second] = 1;
-    }
+    // Pure computation: extract means and variances
+    finalize_stats_arrays(global_stats, means, variances);
 }
 
 VSTResult VSTOperator::run(
@@ -394,7 +221,7 @@ VSTResult VSTOperator::run(
             std::log10(result.gene_variances[i]) : -INFINITY;
     }
 
-    // Fit LOESS (binned approximation)
+    // Fit LOESS (binned approximation) — pure computation
     progress.message("Fitting mean-variance trend...");
     std::vector<double> fitted;
     fit_loess_binned(log_means, log_variances, fitted, n_bins_, loess_span_);
@@ -412,7 +239,7 @@ VSTResult VSTOperator::run(
         }
     }
 
-    // Select top variable features
+    // Select top variable features — pure computation
     progress.message("Selecting variable features...");
     select_top_features(result.vst_variances,
                          result.variable_features, n_top_features_);

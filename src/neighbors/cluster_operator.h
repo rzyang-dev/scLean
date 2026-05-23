@@ -42,42 +42,6 @@ private:
     double resolution_;
     int n_iterations_;
     int random_seed_;
-
-    // Louvain community detection (modularity optimization)
-    ClusterResult louvain(const std::vector<double>& graph_data,
-                           const std::vector<int32>& graph_indices,
-                           const std::vector<int64>& graph_indptr,
-                           int n_nodes);
-
-    // Leiden refinement: split communities into well-connected sub-communities
-    std::vector<int32> leiden_refine(
-        const std::vector<double>& graph_data,
-        const std::vector<int32>& graph_indices,
-        const std::vector<int64>& graph_indptr,
-        int n_nodes,
-        const std::vector<int32>& communities);
-
-    // Leiden community detection (modularity optimization with refinement)
-    ClusterResult leiden(const std::vector<double>& graph_data,
-                          const std::vector<int32>& graph_indices,
-                          const std::vector<int64>& graph_indptr,
-                          int n_nodes);
-
-    // One pass of Louvain: move nodes to maximize modularity
-    // Returns true if any node moved
-    bool louvain_pass(const std::vector<double>& graph_data,
-                      const std::vector<int32>& graph_indices,
-                      const std::vector<int64>& graph_indptr,
-                      int n_nodes,
-                      std::vector<int32>& communities,
-                      double resolution);
-
-    double compute_modularity(const std::vector<double>& graph_data,
-                               const std::vector<int32>& graph_indices,
-                               const std::vector<int64>& graph_indptr,
-                               int n_nodes,
-                               const std::vector<int32>& communities,
-                               double resolution);
 };
 
 } // namespace sclean

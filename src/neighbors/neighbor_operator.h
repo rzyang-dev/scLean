@@ -30,8 +30,9 @@ public:
     NeighborResult run(const Eigen::MatrixXd& embeddings, int k,
                        ChunkScheduler& scheduler);
 
-    // Build SNN graph from KNN graph using Jaccard similarity
-    // Returns sparse CSC representation: data, indices, indptr
+    // Build SNN graph from KNN graph using Jaccard similarity.
+    // Delegates to the free function build_snn_graph() in neighbor_snn.cpp.
+    // Returns sparse CSC representation via output parameters.
     void build_snn(const NeighborResult& knn,
                    std::vector<double>& snn_data,
                    std::vector<int32>& snn_indices,
@@ -40,21 +41,7 @@ public:
                    int n_threads = 1);
 
 private:
-    int k_;
     int n_trees_;
-
-    // Annoy-based approximate KNN for large datasets
-    void knn_annoy(const Eigen::MatrixXd& data,
-                   int k, int n_trees,
-                   std::vector<int32>& idx,
-                   std::vector<float>& dists);
-
-    // Block-based KNN: split cells into query blocks to limit memory
-    void knn_blocked(const Eigen::MatrixXd& data,
-                     int k, int block_size,
-                     std::vector<int32>& idx,
-                     std::vector<float>& dists);
-
 };
 
 } // namespace sclean

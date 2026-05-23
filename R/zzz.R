@@ -17,6 +17,12 @@ NULL
   suppress_hdf5_errors()
 
   # Capture Seurat original S3 methods to avoid ::: calls
+  .seurat_original$NormalizeData.Seurat <- utils::getFromNamespace(
+    "NormalizeData.Seurat", "Seurat")
+  .seurat_original$ScaleData.Seurat <- utils::getFromNamespace(
+    "ScaleData.Seurat", "Seurat")
+  .seurat_original$FindVariableFeatures.Seurat <- utils::getFromNamespace(
+    "FindVariableFeatures.Seurat", "Seurat")
   .seurat_original$FindNeighbors.Seurat <- utils::getFromNamespace(
     "FindNeighbors.Seurat", "Seurat")
   .seurat_original$FindClusters.Seurat <- utils::getFromNamespace(

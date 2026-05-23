@@ -22,11 +22,8 @@ IntegrateData.scLean <- function(
     ...
 ) {
   assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-
-  if (!inherits(sc_assay, "scLeanAssay")) {
-    stop("Integration requires a scLeanAssay")
-  }
+  sc_assay <- extract_sc_assay(object, assay)
+  if (is.null(sc_assay)) stop("Integration requires a scLeanAssay")
 
   # --- Input validation ---
   n.ccs <- as.integer(n.ccs)
@@ -76,7 +73,7 @@ IntegrateData.scLean <- function(
   rownames(corrected) <- cell_names
   colnames(corrected) <- paste0("harmony_", seq_len(ncol(corrected)))
 
-  object@assays[[assay]] <- sc_assay
+  object <- reinstall_assay(object, sc_assay, assay)
   object[["harmony"]] <- SeuratObject::CreateDimReducObject(
     embeddings = corrected,
     key        = "HARMONY_",

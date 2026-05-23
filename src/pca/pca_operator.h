@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 #include <Eigen/Dense>
-#include "matrix/disk_matrix.h"
+#include "core/disk_matrix.h"
 #include "utils/chunk_scheduler.h"
 
 namespace sclean {
@@ -44,20 +44,6 @@ private:
     bool center_, scale_;
     double tol_;
     int max_iter_;
-
-    // Lanczos bidiagonalization: A ~= U * B * V^T
-    // Builds k-step Lanczos decomposition using only matvec/rmatvec.
-    // When means/sds != nullptr, each matvec applies (v - mu)/sigma on-the-fly.
-    void lanczos_bidiag(DiskMatrix* A,
-                        int k,
-                        Eigen::MatrixXd& U,    // (n_rows, k+1)
-                        Eigen::MatrixXd& V,    // (n_cols, k)
-                        Eigen::VectorXd& alpha, // (k,) diagonal
-                        Eigen::VectorXd& beta,  // (k,) superdiagonal
-                        ChunkScheduler& scheduler,
-                        int n_threads,
-                        const double* means,
-                        const double* sds);
 };
 
 } // namespace sclean

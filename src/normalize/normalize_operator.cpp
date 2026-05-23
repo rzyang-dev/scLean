@@ -1,4 +1,5 @@
 #include "normalize_operator.h"
+#include "normalize_internal.h"
 #include "hdf5/hdf5_file.h"
 #include "hdf5/hdf5_csc_matrix.h"
 #include "hdf5/hdf5_sparse_writer.h"
@@ -16,7 +17,7 @@
 namespace sclean {
 
 NormalizeOperator::NormalizeOperator(NormalizeMethod method,
-                                       double scale_factor, bool do_pseudocount)
+                                     double scale_factor, bool do_pseudocount)
     : method_(method), scale_factor_(scale_factor), do_pseudocount_(do_pseudocount) {}
 
 // ============================================================
@@ -32,7 +33,6 @@ std::vector<double> NormalizeOperator::compute_libsize_chunked(
     auto cfg = scheduler.schedule(n_rows, n_cells, OperationType::Normalize, n_threads);
 
     std::string data_path = input_group + "/data";
-    std::string idx_path = input_group + "/indices";
     std::string indptr_path = input_group + "/indptr";
 
     #pragma omp parallel if(n_threads > 1) num_threads(n_threads)
@@ -71,16 +71,9 @@ std::vector<double> NormalizeOperator::compute_libsize_chunked(
                 H5Sclose(fs); H5Sclose(ms); H5Dclose(d);
             }
 
-            // For each column, sum values
-            for (int64 j = 0; j < cc; ++j) {
-                int64 start = indptr_chunk[j] - indptr_chunk[0];
-                int64 end = indptr_chunk[j + 1] - indptr_chunk[0];
-                double sum = 0.0;
-                for (int64 k = start; k < end; ++k) {
-                    sum += vals[k];
-                }
-                libsize[c + j] = sum;
-            }
+            // Pure computation: accumulate per-column sums
+            compute_column_sums(vals.data(), indptr_chunk.data(), cc,
+                                libsize.data() + c);
         }
     }
 
@@ -133,29 +126,16 @@ std::vector<double> NormalizeOperator::compute_geometric_means_chunked(
                 H5Sclose(fs); H5Sclose(ms); H5Dclose(d);
             }
 
-            for (int64 j = 0; j < cc; ++j) {
-                int64 start = indptr_chunk[j] - indptr_chunk[0];
-                int64 end = indptr_chunk[j + 1] - indptr_chunk[0];
-                double log_sum = 0.0;
-                int nz = 0;
-                for (int64 k = start; k < end; ++k) {
-                    double v = vals[k];
-                    if (v > 0) {
-                        log_sum += std::log(v);
-                        nz++;
-                    }
-                }
-                log_sums[c + j] = log_sum;
-                nz_counts[c + j] = nz;
-            }
+            // Pure computation: accumulate per-column log sums and nz counts
+            compute_column_logsums(vals.data(), indptr_chunk.data(), cc,
+                                   log_sums.data() + c, nz_counts.data() + c);
         }
     }
 
+    // Pure computation: convert log sums to geometric means
     std::vector<double> geo_means(n_cells);
-    for (int64 j = 0; j < n_cells; ++j) {
-        geo_means[j] = (nz_counts[j] > 0) ?
-            std::exp(log_sums[j] / nz_counts[j]) : 1.0;
-    }
+    finalize_geometric_means(log_sums.data(), nz_counts.data(), n_cells,
+                             geo_means.data());
     return geo_means;
 }
 
@@ -174,119 +154,6 @@ std::vector<double> NormalizeOperator::compute_size_factors(
                                                     scheduler, n_threads);
     }
     return {};
-}
-
-// ============================================================
-// Normalization transforms
-// ============================================================
-
-void NormalizeOperator::normalize_sparse_chunk(
-    const double* in_data, const int32* in_indices,
-    const int64* in_indptr, int64 col_count,
-    const double* size_factors_segment,
-    HDF5SparseWriter* writer) {
-
-    switch (method_) {
-        case NormalizeMethod::LogNormalize:
-            for (int64 j = 0; j < col_count; ++j) {
-                double sf = size_factors_segment[j];
-                double norm_factor = (sf > 0) ? scale_factor_ / sf : 1.0;
-                int64 start = in_indptr[j] - in_indptr[0];
-                int64 end = in_indptr[j + 1] - in_indptr[0];
-                int64 nnz = end - start;
-
-                std::vector<double> out_vals(nnz);
-                for (int64 k = 0; k < nnz; ++k) {
-                    out_vals[k] = std::log1p(in_data[start + k] * norm_factor);
-                }
-                writer->write_column(out_vals.data(), in_indices + start, nnz);
-            }
-            break;
-
-        case NormalizeMethod::RelativeCounts:
-            for (int64 j = 0; j < col_count; ++j) {
-                double sf = size_factors_segment[j];
-                double norm_factor = (sf > 0) ? scale_factor_ / sf : 1.0;
-                int64 start = in_indptr[j] - in_indptr[0];
-                int64 end = in_indptr[j + 1] - in_indptr[0];
-                int64 nnz = end - start;
-
-                std::vector<double> out_vals(nnz);
-                for (int64 k = 0; k < nnz; ++k) {
-                    out_vals[k] = in_data[start + k] * norm_factor;
-                }
-                writer->write_column(out_vals.data(), in_indices + start, nnz);
-            }
-            break;
-
-        case NormalizeMethod::CLR:
-            // CLR does not preserve zeros — we need dense per column
-            // Write zeros as non-zero entries
-            for (int64 j = 0; j < col_count; ++j) {
-                double gm = size_factors_segment[j];
-                int64 start = in_indptr[j] - in_indptr[0];
-                int64 end = in_indptr[j + 1] - in_indptr[0];
-                int64 nnz = end - start;
-
-                // Build full column (dense) from sparse input
-                // For efficiency, only write entries where result != 0
-                std::vector<double> col_vals;
-                std::vector<int32> col_idx;
-                for (int64 k = 0; k < nnz; ++k) {
-                    double v = in_data[start + k];
-                    double pseudo = do_pseudocount_ ? 1.0 : 0.0;
-                    double r = std::log((v + pseudo) / gm);
-                    if (r != 0.0) {
-                        col_vals.push_back(r);
-                        col_idx.push_back(in_indices[start + k]);
-                    }
-                }
-                writer->write_column(col_vals.data(), col_idx.data(),
-                                     static_cast<int64>(col_vals.size()));
-            }
-            break;
-    }
-}
-
-void NormalizeOperator::normalize_dense_chunk(
-    const double* in_buf, int64 n_rows, int64 n_cols,
-    const double* size_factors_segment,
-    HDF5SparseWriter* writer) {
-
-    for (int64 j = 0; j < n_cols; ++j) {
-        double sf = size_factors_segment[j];
-        double norm_factor = (sf > 0) ? scale_factor_ / sf : 1.0;
-
-        std::vector<double> col_vals;
-        std::vector<int32> col_idx;
-
-        for (int64 i = 0; i < n_rows; ++i) {
-            double v = in_buf[i * n_cols + j];
-            double r = 0.0;
-
-            switch (method_) {
-                case NormalizeMethod::LogNormalize:
-                    r = std::log1p(v * norm_factor);
-                    break;
-                case NormalizeMethod::CLR: {
-                    double pseudo = do_pseudocount_ ? 1.0 : 0.0;
-                    r = std::log((v + pseudo) / sf);
-                    break;
-                }
-                case NormalizeMethod::RelativeCounts:
-                    r = v * norm_factor;
-                    break;
-            }
-
-            if (r != 0.0) {
-                col_vals.push_back(r);
-                col_idx.push_back(static_cast<int32>(i));
-            }
-        }
-
-        writer->write_column(col_vals.data(), col_idx.data(),
-                             static_cast<int64>(col_vals.size()));
-    }
 }
 
 // ============================================================
@@ -318,11 +185,9 @@ NormalizeResult NormalizeOperator::run(
         n_cells, n_rows, nnz, scheduler, n_threads);
     if (verbose) progress.step();
 
-    // Step 2: Create output writer (same nnz for zero-preserving methods,
-    //         estimate nnz for CLR)
+    // Step 2: Create output writer
     int64 est_output_nnz = nnz;
     if (method_ == NormalizeMethod::CLR) {
-        // CLR produces non-zero for all entries with pseudocount
         est_output_nnz = n_rows * n_cells;
     }
 
@@ -335,7 +200,6 @@ NormalizeResult NormalizeOperator::run(
 
     if (method_ == NormalizeMethod::CLR) {
         // CLR: read dense chunks (output may have different sparsity pattern)
-        // MemoryBound → process single column at a time to avoid dense buffer
         if (cfg.bottleneck == Bottleneck::MemoryBound ||
             cfg.bottleneck == Bottleneck::BothBound) {
             cfg.chunk_size = 1;
@@ -363,8 +227,9 @@ NormalizeResult NormalizeOperator::run(
                     continue;
                 }
                 #pragma omp critical
-                normalize_dense_chunk(in_buf.data(), n_rows, cc,
-                                       size_factors.data() + c, &writer);
+                normalize_dense_chunk(method_, in_buf.data(), n_rows, cc,
+                                       size_factors.data() + c,
+                                       scale_factor_, do_pseudocount_, &writer);
             }
         }
         if (oom_occurred) {
@@ -422,8 +287,9 @@ NormalizeResult NormalizeOperator::run(
                     }
 
                     #pragma omp critical
-                    normalize_sparse_chunk(vals.data(), idxs.data(), ip.data(),
-                                            cc, size_factors.data() + c, &writer);
+                    normalize_sparse_chunk(method_, vals.data(), idxs.data(),
+                                            ip.data(), cc, size_factors.data() + c,
+                                            scale_factor_, do_pseudocount_, &writer);
                 } else {
                     // All-zero columns — write empty columns
                     #pragma omp critical

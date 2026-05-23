@@ -1,4 +1,5 @@
 #include "scale_operator.h"
+#include "scale_internal.h"
 #include "hdf5/hdf5_file.h"
 #include "hdf5/hdf5_csc_matrix.h"
 #include "hdf5/hdf5_sparse_writer.h"
@@ -16,7 +17,7 @@
 namespace sclean {
 
 ScaleOperator::ScaleOperator(bool do_scale, bool do_center,
-                               const std::vector<std::vector<double>>* vars_to_regress)
+                             const std::vector<std::vector<double>>* vars_to_regress)
     : do_scale_(do_scale), do_center_(do_center),
       vars_to_regress_(vars_to_regress) {}
 
@@ -28,7 +29,6 @@ void ScaleOperator::compute_moments_row_chunked(
 
     means.assign(n_genes, 0.0);
     sds.assign(n_genes, 0.0);
-    std::vector<double> M2(n_genes, 0.0);  // sum of squared differences
 
     auto cfg = scheduler.schedule(n_genes, n_cells, OperationType::ScaleSimple, n_threads);
 
@@ -59,26 +59,11 @@ void ScaleOperator::compute_moments_row_chunked(
                 continue;
             }
 
-            // Welford for each row in chunk
+            // Pure computation: Welford per row
             for (int64 i = 0; i < rc; ++i) {
                 int64 gene = r + i;
-                double mean = 0.0;
-                double m2 = 0.0;
-                int64 count = 0;
-
-                for (int64 j = 0; j < n_cells; ++j) {
-                    double x = buf[i * n_cells + j];
-                    count++;
-                    double delta = x - mean;
-                    mean += delta / count;
-                    double delta2 = x - mean;
-                    m2 += delta * delta2;
-                }
-
-                means[gene] = mean;
-                M2[gene] = m2;
-                double var = (count > 1) ? std::max(0.0, m2 / (count - 1)) : 0.0;
-                sds[gene] = std::sqrt(var);
+                compute_row_mean_sd(buf.data() + i * n_cells, n_cells,
+                                    means[gene], sds[gene]);
             }
         }
     }
@@ -151,8 +136,6 @@ ScaleResult ScaleOperator::run(
     progress.step();
 
     // Step 2: Write scaled residuals column by column
-    // After centering, all entries become non-zero (zeros → -mean/sd),
-    // so the output can be fully dense. Use n_genes*n_cells as upper bound.
     progress.message("Scaling and writing residuals...");
     int64 max_possible_nnz = n_genes * n_cells;
     HDF5SparseWriter writer(file, output_group, n_genes, n_cells,
@@ -164,7 +147,6 @@ ScaleResult ScaleOperator::run(
     std::string data_path = input_group + "/data";
     std::string idx_path = input_group + "/indices";
     std::string indptr_path = input_group + "/indptr";
-    hid_t fid = file->file_id();
 
     #pragma omp parallel if(n_threads > 1) num_threads(n_threads)
     {
@@ -212,32 +194,21 @@ ScaleResult ScaleOperator::run(
                     H5Sclose(ms);
                 }
 
-                // Scale each column and write
+                // Scale each column using pure computation
                 #pragma omp critical
                 {
+                    std::vector<double> out_vals;
+                    std::vector<int32> out_idx;
+
                     for (int64 j = 0; j < cc; ++j) {
                         int64 col_start = ip[j] - ip[0];
                         int64 col_end = ip[j + 1] - ip[0];
-                        int64 col_nnz = col_end - col_start;
 
-                        std::vector<double> out_vals;
-                        std::vector<int32> out_idx;
-
-                        for (int64 k = col_start; k < col_end; ++k) {
-                            int64 gene = idxs[k];
-                            double v = vals[k];
-                            double mean = means[gene];
-                            double sd = sds[gene];
-
-                            double scaled = v;
-                            if (do_center_) scaled -= mean;
-                            if (do_scale_ && sd > 0) scaled /= sd;
-
-                            if (scaled != 0.0) {
-                                out_vals.push_back(scaled);
-                                out_idx.push_back(static_cast<int32>(gene));
-                            }
-                        }
+                        scale_sparse_column(idxs.data(), vals.data(),
+                                            col_start, col_end,
+                                            means.data(), sds.data(),
+                                            do_center_, do_scale_,
+                                            out_vals, out_idx);
 
                         writer.write_column(out_vals.data(), out_idx.data(),
                                             static_cast<int64>(out_vals.size()));

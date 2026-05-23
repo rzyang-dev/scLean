@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
-#include "matrix/disk_matrix.h"
+#include "core/disk_matrix.h"
 #include "utils/chunk_scheduler.h"
 
 namespace sclean {
@@ -38,17 +38,6 @@ private:
     NormalizeMethod method_;
     double scale_factor_;
     bool do_pseudocount_;
-
-    void normalize_sparse_chunk(
-        const double* in_data, const int32* in_indices,
-        const int64* in_indptr, int64 col_count,
-        const double* size_factors_segment,
-        HDF5SparseWriter* writer);
-
-    void normalize_dense_chunk(
-        const double* in_buf, int64 n_rows, int64 n_cols,
-        const double* size_factors_segment,
-        HDF5SparseWriter* writer);
 
     std::vector<double> compute_size_factors(
         HDF5File* file, const std::string& input_group,

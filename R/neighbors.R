@@ -30,10 +30,17 @@
 #' }
 #' @seealso \code{\link{RunPCA.Seurat}}, \code{\link{FindClusters.Seurat}}
 #' @export
-FindNeighbors.Seurat <- function(object, reduction = "pca", dims = NULL, k.param = 20, annoy.metric = "euclidean", n.trees = 50, ...) {
-  assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-  if (inherits(sc_assay, "scLeanAssay")) {
+FindNeighbors.Seurat <- function(
+    object,
+    reduction = "pca",
+    dims = NULL,
+    k.param = 20,
+    annoy.metric = "euclidean",
+    n.trees = 50,
+    ...
+) {
+  sc_assay <- extract_sc_assay(object)
+  if (!is.null(sc_assay)) {
     return(FindNeighbors.scLeanAssay(object, reduction = reduction,
       dims = dims, k.param = k.param, annoy.metric = annoy.metric,
       n.trees = n.trees, ...))
@@ -54,13 +61,7 @@ FindNeighbors.scLeanAssay <- function(
     ...
 ) {
   assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-
-  if (!inherits(sc_assay, "scLeanAssay")) {
-    return(Seurat::FindNeighbors(object, reduction = reduction,
-      dims = dims, k.param = k.param, annoy.metric = annoy.metric,
-      n.trees = n.trees, ...))
-  }
+  sc_assay <- extract_sc_assay(object, assay)
 
   # Get PCA embeddings
   if (!reduction %in% names(object@reductions)) {
@@ -69,7 +70,7 @@ FindNeighbors.scLeanAssay <- function(
 
   # PCA embeddings are always fully loaded into R memory here.
   # Seurat's Embeddings() function requires an in-memory matrix.
-  # For 500K cells × 30 PCs, this is ~120 MB — a primary RAM consumer.
+  # For 500K cells x 30 PCs, this is ~120 MB — a primary RAM consumer.
   embeddings <- SeuratObject::Embeddings(object, reduction = reduction)
   npcs <- ncol(embeddings)
   if (is.null(dims)) {

@@ -1,81 +1,29 @@
 #include "chunk_scheduler.h"
+#include "chunk_platform.h"
 #include "resource_monitor.h"
 #include "thread_governor.h"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
-#ifdef __APPLE__
-#include <sys/sysctl.h>
-#include <mach/mach.h>
-#elif defined(_WIN32)
-#include <windows.h>
-#else
-#include <sys/sysinfo.h>
-#endif
-
 namespace sclean {
-
-// --- System RAM detection ---
-
-int64 ChunkScheduler::detect_system_ram() {
-#ifdef __APPLE__
-    int64 ram;
-    size_t sz = sizeof(ram);
-    if (sysctlbyname("hw.memsize", &ram, &sz, nullptr, 0) == 0) return ram;
-#elif defined(_WIN32)
-    MEMORYSTATUSEX s; s.dwLength = sizeof(s);
-    if (GlobalMemoryStatusEx(&s)) return static_cast<int64>(s.ullTotalPhys);
-#else
-    struct sysinfo info;
-    if (sysinfo(&info) == 0) return static_cast<int64>(info.totalram) * info.mem_unit;
-#endif
-    return 8LL * 1024 * 1024 * 1024;
-}
-
-int64 ChunkScheduler::detect_free_ram() {
-    int64 free_ram = 0;
-#ifdef __APPLE__
-    mach_port_t host = mach_host_self();
-    vm_size_t page_size;
-    host_page_size(host, &page_size);
-    vm_statistics64_data_t vm_stat;
-    mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
-    if (host_statistics64(host, HOST_VM_INFO64, (host_info64_t)&vm_stat, &count) == KERN_SUCCESS) {
-        free_ram = static_cast<int64>(vm_stat.free_count + vm_stat.inactive_count) * page_size;
-    }
-    mach_port_deallocate(mach_task_self(), host);
-#elif defined(_WIN32)
-    MEMORYSTATUSEX s; s.dwLength = sizeof(s);
-    if (GlobalMemoryStatusEx(&s)) free_ram = static_cast<int64>(s.ullAvailPhys);
-#else
-    struct sysinfo info;
-    if (sysinfo(&info) == 0) free_ram = static_cast<int64>(info.freeram) * info.mem_unit;
-#endif
-    // Floor at 20% of total RAM to avoid excessively small chunks
-    // when the system reports near-zero free memory (e.g., due to disk cache).
-    int64 total = detect_system_ram();
-    int64 floor_val = static_cast<int64>(total * 0.2);
-    if (free_ram < floor_val) free_ram = floor_val;
-    return free_ram;
-}
 
 // --- Operation multipliers ---
 //
 // Each multiplier M represents the peak temporary-memory-to-read-buffer ratio.
-// The multiplier captures: 1× for the read buffer itself + additional memory
+// The multiplier captures: 1x for the read buffer itself + additional memory
 // for intermediate computation buffers and results.
 //
 // Breakdown:
-//   Normalize (M=3):    1× read + 1× log/RLE transform result + 1× Welford accumulators
-//   Scale (M=6):        1× read + 1× centered result + 4× regression design matrix intermediates
-//   ScaleSimple (M=2):  1× read + 1× centered result (no regression, less intermediate state)
-//   VST (M=4):          1× read + 1× binned means + 1× binned variances + 1× fit temporary
-//   PCA (M=2.5):        1× read + 0.5× matvec output + 1× Lanczos vector state
-//   FindMarkers (M=4):  1× read + 1× group-split arrays + 1× rank buffers + 1× p-value workspace
-//   FindNeighbors (M=3): 1× read + 1× distance matrix + 1× index/heap buffers
-//   Integration (M=5):  1× read + 1× MNN distance matrix + 1× correction vectors
-//                       + 1× smoothed output + 1× Gaussian kernel workspace
+//   Normalize (M=3):    1x read + 1x log/RLE transform result + 1x Welford accumulators
+//   Scale (M=6):        1x read + 1x centered result + 4x regression design matrix intermediates
+//   ScaleSimple (M=2):  1x read + 1x centered result (no regression, less intermediate state)
+//   VST (M=4):          1x read + 1x binned means + 1x binned variances + 1x fit temporary
+//   PCA (M=2.5):        1x read + 0.5x matvec output + 1x Lanczos vector state
+//   FindMarkers (M=4):  1x read + 1x group-split arrays + 1x rank buffers + 1x p-value workspace
+//   FindNeighbors (M=3): 1x read + 1x distance matrix + 1x index/heap buffers
+//   Integration (M=5):  1x read + 1x MNN distance matrix + 1x correction vectors
+//                       + 1x smoothed output + 1x Gaussian kernel workspace
 //
 // These are conservative estimates tuned on gene expression data (sparse, ~5-10% dense).
 // Dense data may need higher multipliers; the 128 MB hard cap on dense chunks (set via
@@ -118,14 +66,14 @@ ChunkAxis ChunkScheduler::op_axis(OperationType op) {
 ChunkScheduler::ChunkScheduler(int64 cap_bytes)
     : cap_(cap_bytes > 0 ? cap_bytes : 0)
     , available_ram_(cap_bytes > 0
-        ? std::min(detect_free_ram(), cap_bytes)
-        : detect_free_ram())
+        ? std::min(detail::detect_free_ram(), cap_bytes)
+        : detail::detect_free_ram())
     , chunk_override_(-1)
     , retry_count_(0)
     , last_bottleneck_(Bottleneck::None) {}
 
 void ChunkScheduler::refresh_available_ram() {
-    int64 free = detect_free_ram();
+    int64 free = detail::detect_free_ram();
     available_ram_ = cap_ > 0 ? std::min(free, cap_) : free;
 }
 
@@ -151,7 +99,7 @@ void ChunkScheduler::clear_override() {
 // --- Core scheduling logic (shared implementation) ---
 //
 // Algorithm:
-// 1. If chunk_override is set (>0), use it directly — no auto-sizing.
+// 1. If chunk_override is set (>0), use it directly -- no auto-sizing.
 // 2. Compute usable budget B = usable_ram - extra_buffers - parallel_overhead,
 //    where parallel_overhead = compute_buf * (n_threads - 1).
 // 3. chunk_size = floor(B / (stride * elem_size * M)), clamped to min/max bounds.
@@ -229,7 +177,7 @@ static ChunkConfig schedule_impl(int64 R, int64 C, ChunkAxis axis,
         if (dense_buf > max_dense_bytes) {
             cfg.chunk_size = max_dense_bytes / (stride * elem_size);
             cfg.chunk_size = std::max(cfg.chunk_size, static_cast<int64>(MIN_CHUNK_COLS));
-            cfg.fits_in_memory = false;  // capped → not truly in-memory
+            cfg.fits_in_memory = false;  // capped -> not truly in-memory
         }
 
         cfg.n_chunks = (C + cfg.chunk_size - 1) / cfg.chunk_size;
@@ -409,7 +357,7 @@ ChunkConfig ChunkScheduler::schedule(
 // Level 1 (retry 1): Halve the chunk size from its current value.
 // Level 2 (retry 2): Halve again.
 // Level 3 (retry 3): Halve again, down to floor of 128.
-// Fail (retry > 3): return false — caller should propagate the error.
+// Fail (retry > 3): return false -- caller should propagate the error.
 //
 // Each successful shrinkage sets the halved size as a chunk_override so that
 // subsequent schedule() calls within the same operation use the smaller chunks.

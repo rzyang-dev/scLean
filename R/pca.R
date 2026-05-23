@@ -32,10 +32,18 @@
 #' }
 #' @seealso \code{\link{FindNeighbors.Seurat}}, \code{\link{FindClusters.Seurat}}
 #' @export
-RunPCA.Seurat <- function(object, npcs = 50, features = NULL, reduction.name = "pca", reduction.key = "PC_", tol = 1e-5, max.iter = 1000, ...) {
-  assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-  if (inherits(sc_assay, "scLeanAssay")) {
+RunPCA.Seurat <- function(
+    object,
+    npcs = 50,
+    features = NULL,
+    reduction.name = "pca",
+    reduction.key = "PC_",
+    tol = 1e-5,
+    max.iter = 1000,
+    ...
+) {
+  sc_assay <- extract_sc_assay(object)
+  if (!is.null(sc_assay)) {
     return(RunPCA.scLeanAssay(object, npcs = npcs, features = features,
       reduction.name = reduction.name, reduction.key = reduction.key,
       tol = tol, max.iter = max.iter, ...))
@@ -56,19 +64,7 @@ RunPCA.scLeanAssay <- function(
     max.iter = 1000,
     ...
 ) {
-  if (inherits(object, "scLeanAssay")) {
-    sc_assay <- object
-    # For assay-only calls, we need cell/feature names from HDF5
-  } else if (inherits(object, "Seurat")) {
-    assay <- SeuratObject::DefaultAssay(object)
-    sc_assay <- object@assays[[assay]]
-    if (!inherits(sc_assay, "scLeanAssay")) {
-      return(Seurat::RunPCA(object, npcs = npcs, features = features,
-        reduction.name = reduction.name, reduction.key = reduction.key, ...))
-    }
-  } else {
-    stop("object must be a Seurat object or scLeanAssay")
-  }
+  sc_assay <- extract_sc_assay(object)
 
   if (is.null(features)) {
     # Feature resolution chain:
@@ -103,7 +99,7 @@ RunPCA.scLeanAssay <- function(
   # Read PCA results and add as DimReduc.
   # Embeddings and loadings are always fully read into memory after computation.
   # This is because Seurat's CreateDimReducObject requires in-memory matrices.
-  # For 500K cells × 30 PCs, the embedding matrix alone is ~120 MB — this is
+  # For 500K cells x 30 PCs, the embedding matrix alone is ~120 MB — this is
   # the primary in-memory cost of RunPCA.
   embeddings <- read_dense_matrix(
     sc_assay@hdf5_path,
@@ -121,16 +117,16 @@ RunPCA.scLeanAssay <- function(
   rownames(embeddings) <- read_strings_from_hdf5(sc_assay@hdf5_path, "/cells/names")
   rownames(loadings) <- read_strings_from_hdf5(sc_assay@hdf5_path, "/features/names")
 
-  if (inherits(object, "Seurat")) {
-    object@assays[[assay]] <- sc_assay
-    object[[reduction.name]] <- SeuratObject::CreateDimReducObject(
+  result <- reinstall_assay(object, sc_assay)
+  if (inherits(result, "Seurat")) {
+    result[[reduction.name]] <- SeuratObject::CreateDimReducObject(
       embeddings = embeddings,
       loadings   = loadings,
       stdev      = stdev,
       key        = reduction.key,
-      assay      = assay
+      assay      = SeuratObject::DefaultAssay(result)
     )
-    return(object)
+    return(result)
   }
-  return(sc_assay)
+  return(result)
 }

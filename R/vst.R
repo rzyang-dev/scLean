@@ -23,22 +23,25 @@
 #' @seealso \code{\link{NormalizeData.scLeanAssay}},
 #'   \code{\link{ScaleData.scLeanAssay}}
 #' @export
+FindVariableFeatures.Seurat <- function(
+    object,
+    nfeatures = 2000,
+    ...
+) {
+  sc_assay <- extract_sc_assay(object)
+  if (!is.null(sc_assay)) {
+    return(FindVariableFeatures.scLeanAssay(object, nfeatures = nfeatures, ...))
+  }
+  .seurat_original$FindVariableFeatures.Seurat(object, nfeatures = nfeatures, ...)
+}
+
+#' @export
 FindVariableFeatures.scLeanAssay <- function(
     object,
     nfeatures = 2000,
     ...
 ) {
-  if (inherits(object, "scLeanAssay")) {
-    sc_assay <- object
-  } else if (inherits(object, "Seurat")) {
-    assay <- SeuratObject::DefaultAssay(object)
-    sc_assay <- object@assays[[assay]]
-    if (!inherits(sc_assay, "scLeanAssay")) {
-      return(Seurat::FindVariableFeatures(object, nfeatures = nfeatures, ...))
-    }
-  } else {
-    stop("object must be a Seurat object or scLeanAssay")
-  }
+  sc_assay <- extract_sc_assay(object)
 
   cpp_vst(
     hdf5_path   = sc_assay@hdf5_path,
@@ -48,19 +51,15 @@ FindVariableFeatures.scLeanAssay <- function(
 
   # Read variable features from HDF5
   vf <- read_strings_from_hdf5(sc_assay@hdf5_path, "/features/names")
-  # NOTE: read_vector_int8 is a misnomer — the underlying C++ function reads
-  # int32 (4-byte integers), not int8 (1-byte). Variable-feature flags are 0/1,
-  # so the comparison `is_var == 1` works correctly in both types.
-  # Renaming would break the RcppExports generation and is deferred.
-  is_var <- read_vector_int8(sc_assay@hdf5_path,
-                              paste0(sc_assay@hdf5_group, "/features/variable"))
+  is_var <- read_hdf5_int32(sc_assay@hdf5_path,
+                            paste0(sc_assay@hdf5_group, "/features/variable"))
 
-  if (inherits(object, "Seurat")) {
-    object@assays[[assay]] <- sc_assay
+  result <- reinstall_assay(object, sc_assay)
+  if (inherits(result, "Seurat")) {
     selected <- vf[is_var == 1]
-    VariableFeatures(object[[assay]]) <- selected
-    return(object)
+    VariableFeatures(result[[SeuratObject::DefaultAssay(result)]]) <- selected
+    return(result)
   }
-  VariableFeatures(sc_assay) <- vf[is_var == 1]
-  return(sc_assay)
+  VariableFeatures(result) <- vf[is_var == 1]
+  return(result)
 }

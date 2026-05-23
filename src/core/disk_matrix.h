@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <vector>
-#include "scLean_types.h"
+#include "sclean_types.h"
 
 namespace sclean {
 

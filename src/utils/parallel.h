@@ -2,6 +2,7 @@
 #define SCLEAN_PARALLEL_H
 
 #include <cstdint>
+#include "scLean_types.h"
 
 #ifdef _OPENMP
 #include <omp.h>

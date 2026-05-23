@@ -32,10 +32,17 @@
 #' }
 #' @seealso \code{\link{FindAllMarkers.scLeanAssay}}
 #' @export
-FindMarkers.Seurat <- function(object, ident.1, ident.2 = NULL, test.use = "wilcox", logfc.threshold = 0.25, min.pct = 0.1, ...) {
-  assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-  if (inherits(sc_assay, "scLeanAssay")) {
+FindMarkers.Seurat <- function(
+    object,
+    ident.1,
+    ident.2 = NULL,
+    test.use = "wilcox",
+    logfc.threshold = 0.25,
+    min.pct = 0.1,
+    ...
+) {
+  sc_assay <- extract_sc_assay(object)
+  if (!is.null(sc_assay)) {
     return(FindMarkers.scLeanAssay(object, ident.1 = ident.1,
       ident.2 = ident.2, test.use = test.use,
       logfc.threshold = logfc.threshold, min.pct = min.pct, ...))
@@ -56,13 +63,7 @@ FindMarkers.scLeanAssay <- function(
     ...
 ) {
   assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-
-  if (!inherits(sc_assay, "scLeanAssay")) {
-    return(Seurat::FindMarkers(object, ident.1 = ident.1, ident.2 = ident.2,
-      test.use = test.use, logfc.threshold = logfc.threshold,
-      min.pct = min.pct, ...))
-  }
+  sc_assay <- extract_sc_assay(object, assay)
 
   idents <- SeuratObject::Idents(object)
   clusters <- as.integer(idents)
@@ -143,12 +144,7 @@ FindAllMarkers.scLeanAssay <- function(
     ...
 ) {
   assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-
-  if (!inherits(sc_assay, "scLeanAssay")) {
-    return(Seurat::FindAllMarkers(object, test.use = test.use,
-      logfc.threshold = logfc.threshold, min.pct = min.pct, ...))
-  }
+  sc_assay <- extract_sc_assay(object, assay)
 
   idents <- SeuratObject::Idents(object)
   all_clusters <- sort(unique(idents))
@@ -164,11 +160,15 @@ FindAllMarkers.scLeanAssay <- function(
 }
 
 #' @export
-FindAllMarkers.Seurat <- function(object, test.use = "wilcox",
-    logfc.threshold = 0.25, min.pct = 0.1, ...) {
-  assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-  if (inherits(sc_assay, "scLeanAssay")) {
+FindAllMarkers.Seurat <- function(
+    object,
+    test.use = "wilcox",
+    logfc.threshold = 0.25,
+    min.pct = 0.1,
+    ...
+) {
+  sc_assay <- extract_sc_assay(object)
+  if (!is.null(sc_assay)) {
     return(FindAllMarkers.scLeanAssay(object, test.use = test.use,
       logfc.threshold = logfc.threshold, min.pct = min.pct, ...))
   }

@@ -33,7 +33,7 @@ R user code
   → S3 dispatch (.Seurat function in generics.R)
     → .scLeanAssay method (normalize.R, scale.R, pca.R, etc.)
       → RcppExports.R (.Call wrapper)
-        → rcpp_exports.cpp (C++ entry point)
+        → rcpp_io.cpp / rcpp_pipeline.cpp / rcpp_perf.cpp (C++ entry points)
           → Operator class (normalize/, scale/, pca/, etc.)
             → DiskMatrix → HDF5CSCMatrix / HDF5DenseMatrix
               → HDF5File (hdf5/)
@@ -104,7 +104,7 @@ The `ChunkScheduler` (in `src/utils/chunk_scheduler.cpp`) is the central memory 
 
 ### 0-Based vs 1-Based Indexing
 
-C++ uses 0-based indexing. R uses 1-based indexing. The conversion (`- 1L`, `+ 1`) happens in R pipeline functions before calling C++ and after reading results back. Key locations: `pca.R:85`, `markers.R:95`, `io.R` (passim).
+C++ uses 0-based indexing. R uses 1-based indexing. The conversion (`- 1L`, `+ 1`) happens in R pipeline functions before calling C++ and after reading results back. Key locations: `pca.R:85`, `markers.R:95`, `io-convert.R` (passim).
 
 ### LogMap Registration
 
@@ -124,8 +124,12 @@ Seurat v5 Assay5 tracks which layers each cell/feature participates in via `LogM
 | `generics.R` | S3 generics re-export from Seurat |
 | `utils.R` | Internal utilities (`%||%`, `s3_register`, `is_numeric_like`, `is_low_memory`) |
 | `sclean-class.R` | scLeanAssay S4 class, constructors, LogMap helpers |
+| `dispatch-helpers.R` | Shared helpers: extract_sc_assay, reinstall_assay, register_layer, resolve_chunk_size |
 | `hdf5-matrix.R` | HDF5BackedMatrix R6 proxy class and S3 methods |
-| `io.R` | Data loading (LoadScleanObject) and conversion (as.scLean, as.Seurat.scLean) |
+| `io-load.R` | Main entry point: LoadScleanObject dispatching across input types |
+| `io-10x.R` | 10X Genomics import: directory streaming, CellRanger .h5 routing |
+| `io-convert.R` | Bidirectional conversion: as.scLean, as.Seurat.scLean |
+| `io-assay.R` | Re-open existing HDF5: CreateSCleanAssayFromHDF5 |
 | `chunk-control.R` | Resource management (SetChunkSize, SetMaxRAM, SetThreads, MemoryReport, etc.) |
 | `normalize.R` | NormalizeData: LogNormalize, CLR, RelativeCounts |
 | `scale.R` | ScaleData: Welford-based centering/scaling (no materialized scale.data) |
@@ -144,13 +148,16 @@ Seurat v5 Assay5 tracks which layers each cell/feature participates in via `LogM
 |------|---------|
 | `scLean_types.h` | Global type aliases and memory budget constants |
 | `RcppExports.cpp` | Auto-generated Rcpp glue (do not edit) |
-| `rcpp_exports.cpp` | C++ entry points for all R-callable functions |
-| `hdf5/hdf5_file.h/.cpp` | HDF5 file abstraction, thread-local handle cache |
+| `rcpp_io.cpp` | HDF5 I/O R bridge: shape, chunks, dgCMatrix, strings, vectors |
+| `rcpp_pipeline.cpp` | Pipeline R bridge: normalize, scale, vst, pca, neighbors, clusters, markers, integration |
+| `rcpp_perf.cpp` | Performance probe R bridge: RSS, wall-time, threads, resource snapshot |
+| `hdf5/hdf5_file.h/.cpp` | HDF5 file abstraction, thread-local handle cache, matrix factory methods |
 | `hdf5/hdf5_csc_matrix.h/.cpp` | HDF5-backed CSC sparse matrix (read/query/matvec) |
 | `hdf5/hdf5_dense_matrix.h/.cpp` | HDF5-backed dense matrix |
 | `hdf5/hdf5_sparse_writer.h/.cpp` | Incremental CSC writer for streaming writes |
-| `hdf5/hdf5_file_matrix.cpp` | Factory methods for matrix construction |
-| `matrix/disk_matrix.h` | Abstract DiskMatrix interface |
+| `core/disk_matrix.h` | Abstract DiskMatrix interface |
+| `core/pipeline_operator.h` | Common operator base class and OpResult contract |
+| `core/data_source.h` | Abstract data access layer (logical-name-based layer access) |
 | `normalize/normalize_operator.h/.cpp` | LogNormalize, CLR, RelativeCounts |
 | `normalize/vst_operator.h/.cpp` | VST variable feature selection (Welford + binned LOESS) |
 | `scale/scale_operator.h/.cpp` | Gene-wise scaling (Welford), on-demand stats compute |

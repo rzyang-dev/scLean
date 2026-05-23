@@ -24,6 +24,28 @@
 #' @seealso \code{\link{ScaleData.scLeanAssay}},
 #'   \code{\link{FindVariableFeatures.scLeanAssay}}
 #' @export
+NormalizeData.Seurat <- function(
+    object,
+    assay = NULL,
+    normalization.method = "LogNormalize",
+    scale.factor = 10000,
+    margin = 2,
+    chunk.size = NULL,
+    in_memory = FALSE,
+    ...
+) {
+  sc_assay <- extract_sc_assay(object, assay)
+  if (!is.null(sc_assay)) {
+    return(NormalizeData.scLeanAssay(object, assay = assay,
+      normalization.method = normalization.method, scale.factor = scale.factor,
+      margin = margin, chunk.size = chunk.size, in_memory = in_memory, ...))
+  }
+  .seurat_original$NormalizeData.Seurat(object, assay = assay,
+    normalization.method = normalization.method,
+    scale.factor = scale.factor, margin = margin, ...)
+}
+
+#' @export
 NormalizeData.scLeanAssay <- function(
     object,
     assay = NULL,
@@ -34,55 +56,26 @@ NormalizeData.scLeanAssay <- function(
     in_memory = FALSE,
     ...
 ) {
-  if (inherits(object, "scLeanAssay")) {
-    sc_assay <- object
-  } else if (inherits(object, "Seurat")) {
-    if (is.null(assay)) assay <- SeuratObject::DefaultAssay(object)
-    sc_assay <- object@assays[[assay]]
-    if (!inherits(sc_assay, "scLeanAssay")) {
-      return(Seurat::NormalizeData(object, assay = assay,
-        normalization.method = normalization.method,
-        scale.factor = scale.factor, margin = margin, ...))
-    }
-  } else {
-    stop("object must be a Seurat object or scLeanAssay")
-  }
+  sc_assay <- extract_sc_assay(object, assay)
 
-  method_map <- c(
-    LogNormalize = 0L,
-    CLR          = 1L,
-    RC           = 2L
-  )
-
+  method_map <- c(LogNormalize = 0L, CLR = 1L, RC = 2L)
   method_int <- method_map[normalization.method]
-  if (is.na(method_int)) {
-    stop("Unknown normalization method: ", normalization.method)
-  }
-
-  chunk <- chunk.size %||% .get_chunk_override() %||% -1
+  if (is.na(method_int)) stop("Unknown normalization method: ", normalization.method)
 
   cpp_normalize(
     hdf5_path    = sc_assay@hdf5_path,
     assay_group  = sc_assay@hdf5_group,
     method       = method_int,
     scale_factor = scale.factor,
-    chunk_size   = as.integer(chunk),
+    chunk_size   = as.integer(resolve_chunk_size(chunk.size)),
     in_memory    = in_memory
   )
 
-  # Update the layers in the assay
   data_proxy <- HDF5BackedMatrix$new(
     hdf5_path  = sc_assay@hdf5_path,
     group_path = paste0(sc_assay@hdf5_group, "/layers/data")
   )
-
   sc_assay@layers[["data"]] <- data_proxy
-  # Update cell/feature maps for Seurat v5 validation
-  sc_assay <- .add_layer_to_maps(sc_assay, "data")
-
-  if (inherits(object, "Seurat")) {
-    object@assays[[assay]] <- sc_assay
-    return(object)
-  }
-  return(sc_assay)
+  sc_assay <- register_layer(sc_assay, "data")
+  reinstall_assay(object, sc_assay, assay)
 }

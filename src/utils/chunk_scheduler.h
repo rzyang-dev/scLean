@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
-#include "matrix/disk_matrix.h"
+#include "core/disk_matrix.h"
 #include "scLean_types.h"
 
 namespace sclean {
@@ -85,8 +85,6 @@ private:
     Bottleneck last_bottleneck_ = Bottleneck::None;
 
     static double op_multiplier(OperationType op);
-    static int64 detect_system_ram();
-    static int64 detect_free_ram();
     static ChunkAxis op_axis(OperationType op);
 };
 

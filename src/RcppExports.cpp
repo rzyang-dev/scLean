@@ -177,128 +177,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// cpp_normalize
-List cpp_normalize(std::string hdf5_path, std::string assay_group, int method, double scale_factor, int chunk_size, bool in_memory);
-RcppExport SEXP _scLean_cpp_normalize(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP methodSEXP, SEXP scale_factorSEXP, SEXP chunk_sizeSEXP, SEXP in_memorySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
-    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
-    Rcpp::traits::input_parameter< int >::type method(methodSEXP);
-    Rcpp::traits::input_parameter< double >::type scale_factor(scale_factorSEXP);
-    Rcpp::traits::input_parameter< int >::type chunk_size(chunk_sizeSEXP);
-    Rcpp::traits::input_parameter< bool >::type in_memory(in_memorySEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_normalize(hdf5_path, assay_group, method, scale_factor, chunk_size, in_memory));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_scale
-List cpp_scale(std::string hdf5_path, std::string assay_group, bool do_scale, bool do_center, int chunk_size, bool in_memory);
-RcppExport SEXP _scLean_cpp_scale(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP do_scaleSEXP, SEXP do_centerSEXP, SEXP chunk_sizeSEXP, SEXP in_memorySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
-    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
-    Rcpp::traits::input_parameter< bool >::type do_scale(do_scaleSEXP);
-    Rcpp::traits::input_parameter< bool >::type do_center(do_centerSEXP);
-    Rcpp::traits::input_parameter< int >::type chunk_size(chunk_sizeSEXP);
-    Rcpp::traits::input_parameter< bool >::type in_memory(in_memorySEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_scale(hdf5_path, assay_group, do_scale, do_center, chunk_size, in_memory));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_vst
-List cpp_vst(std::string hdf5_path, std::string assay_group, int n_top);
-RcppExport SEXP _scLean_cpp_vst(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP n_topSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
-    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
-    Rcpp::traits::input_parameter< int >::type n_top(n_topSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_vst(hdf5_path, assay_group, n_top));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_pca
-List cpp_pca(std::string hdf5_path, std::string assay_group, int npcs, double tol, int max_iter, std::vector<int> feature_indices);
-RcppExport SEXP _scLean_cpp_pca(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP npcsSEXP, SEXP tolSEXP, SEXP max_iterSEXP, SEXP feature_indicesSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
-    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
-    Rcpp::traits::input_parameter< int >::type npcs(npcsSEXP);
-    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
-    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
-    Rcpp::traits::input_parameter< std::vector<int> >::type feature_indices(feature_indicesSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_pca(hdf5_path, assay_group, npcs, tol, max_iter, feature_indices));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_find_neighbors
-void cpp_find_neighbors(NumericMatrix embeddings, int k, std::string metric, int n_trees, std::string hdf5_path, std::string assay_group);
-RcppExport SEXP _scLean_cpp_find_neighbors(SEXP embeddingsSEXP, SEXP kSEXP, SEXP metricSEXP, SEXP n_treesSEXP, SEXP hdf5_pathSEXP, SEXP assay_groupSEXP) {
+// stream_10x_to_hdf5
+void stream_10x_to_hdf5(std::string tenx_dir, std::string hdf5_path, std::string assay);
+RcppExport SEXP _scLean_stream_10x_to_hdf5(SEXP tenx_dirSEXP, SEXP hdf5_pathSEXP, SEXP assaySEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericMatrix >::type embeddings(embeddingsSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    Rcpp::traits::input_parameter< std::string >::type metric(metricSEXP);
-    Rcpp::traits::input_parameter< int >::type n_trees(n_treesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type tenx_dir(tenx_dirSEXP);
     Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
-    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
-    cpp_find_neighbors(embeddings, k, metric, n_trees, hdf5_path, assay_group);
-    return R_NilValue;
-END_RCPP
-}
-// cpp_find_clusters
-List cpp_find_clusters(std::string hdf5_path, std::string assay_group, int algorithm, double resolution, int n_iter);
-RcppExport SEXP _scLean_cpp_find_clusters(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP algorithmSEXP, SEXP resolutionSEXP, SEXP n_iterSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
-    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
-    Rcpp::traits::input_parameter< int >::type algorithm(algorithmSEXP);
-    Rcpp::traits::input_parameter< double >::type resolution(resolutionSEXP);
-    Rcpp::traits::input_parameter< int >::type n_iter(n_iterSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_find_clusters(hdf5_path, assay_group, algorithm, resolution, n_iter));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_find_markers
-List cpp_find_markers(std::string hdf5_path, std::string assay_group, std::vector<int> clusters, int ident_1, int ident_2, int test_type, double logfc_threshold, double min_pct);
-RcppExport SEXP _scLean_cpp_find_markers(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP clustersSEXP, SEXP ident_1SEXP, SEXP ident_2SEXP, SEXP test_typeSEXP, SEXP logfc_thresholdSEXP, SEXP min_pctSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
-    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
-    Rcpp::traits::input_parameter< std::vector<int> >::type clusters(clustersSEXP);
-    Rcpp::traits::input_parameter< int >::type ident_1(ident_1SEXP);
-    Rcpp::traits::input_parameter< int >::type ident_2(ident_2SEXP);
-    Rcpp::traits::input_parameter< int >::type test_type(test_typeSEXP);
-    Rcpp::traits::input_parameter< double >::type logfc_threshold(logfc_thresholdSEXP);
-    Rcpp::traits::input_parameter< double >::type min_pct(min_pctSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_find_markers(hdf5_path, assay_group, clusters, ident_1, ident_2, test_type, logfc_threshold, min_pct));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_integrate
-void cpp_integrate(std::string hdf5_path, std::string assay_group, std::vector<int> batch_labels, int n_ccs, int n_mnn, double sigma, int max_iter);
-RcppExport SEXP _scLean_cpp_integrate(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP batch_labelsSEXP, SEXP n_ccsSEXP, SEXP n_mnnSEXP, SEXP sigmaSEXP, SEXP max_iterSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
-    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
-    Rcpp::traits::input_parameter< std::vector<int> >::type batch_labels(batch_labelsSEXP);
-    Rcpp::traits::input_parameter< int >::type n_ccs(n_ccsSEXP);
-    Rcpp::traits::input_parameter< int >::type n_mnn(n_mnnSEXP);
-    Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
-    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
-    cpp_integrate(hdf5_path, assay_group, batch_labels, n_ccs, n_mnn, sigma, max_iter);
+    Rcpp::traits::input_parameter< std::string >::type assay(assaySEXP);
+    stream_10x_to_hdf5(tenx_dir, hdf5_path, assay);
     return R_NilValue;
 END_RCPP
 }
@@ -391,15 +278,128 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// stream_10x_to_hdf5
-void stream_10x_to_hdf5(std::string tenx_dir, std::string hdf5_path, std::string assay);
-RcppExport SEXP _scLean_stream_10x_to_hdf5(SEXP tenx_dirSEXP, SEXP hdf5_pathSEXP, SEXP assaySEXP) {
+// cpp_normalize
+List cpp_normalize(std::string hdf5_path, std::string assay_group, int method, double scale_factor, int chunk_size, bool in_memory);
+RcppExport SEXP _scLean_cpp_normalize(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP methodSEXP, SEXP scale_factorSEXP, SEXP chunk_sizeSEXP, SEXP in_memorySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
+    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
+    Rcpp::traits::input_parameter< int >::type method(methodSEXP);
+    Rcpp::traits::input_parameter< double >::type scale_factor(scale_factorSEXP);
+    Rcpp::traits::input_parameter< int >::type chunk_size(chunk_sizeSEXP);
+    Rcpp::traits::input_parameter< bool >::type in_memory(in_memorySEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_normalize(hdf5_path, assay_group, method, scale_factor, chunk_size, in_memory));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_scale
+List cpp_scale(std::string hdf5_path, std::string assay_group, bool do_scale, bool do_center, int chunk_size, bool in_memory);
+RcppExport SEXP _scLean_cpp_scale(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP do_scaleSEXP, SEXP do_centerSEXP, SEXP chunk_sizeSEXP, SEXP in_memorySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
+    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
+    Rcpp::traits::input_parameter< bool >::type do_scale(do_scaleSEXP);
+    Rcpp::traits::input_parameter< bool >::type do_center(do_centerSEXP);
+    Rcpp::traits::input_parameter< int >::type chunk_size(chunk_sizeSEXP);
+    Rcpp::traits::input_parameter< bool >::type in_memory(in_memorySEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_scale(hdf5_path, assay_group, do_scale, do_center, chunk_size, in_memory));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_vst
+List cpp_vst(std::string hdf5_path, std::string assay_group, int n_top);
+RcppExport SEXP _scLean_cpp_vst(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP n_topSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
+    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
+    Rcpp::traits::input_parameter< int >::type n_top(n_topSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_vst(hdf5_path, assay_group, n_top));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_pca
+List cpp_pca(std::string hdf5_path, std::string assay_group, int npcs, double tol, int max_iter, Rcpp::Nullable<Rcpp::IntegerVector> feature_indices);
+RcppExport SEXP _scLean_cpp_pca(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP npcsSEXP, SEXP tolSEXP, SEXP max_iterSEXP, SEXP feature_indicesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
+    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
+    Rcpp::traits::input_parameter< int >::type npcs(npcsSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::IntegerVector> >::type feature_indices(feature_indicesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_pca(hdf5_path, assay_group, npcs, tol, max_iter, feature_indices));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_find_neighbors
+void cpp_find_neighbors(NumericMatrix embeddings, int k, std::string metric, int n_trees, std::string hdf5_path, std::string assay_group);
+RcppExport SEXP _scLean_cpp_find_neighbors(SEXP embeddingsSEXP, SEXP kSEXP, SEXP metricSEXP, SEXP n_treesSEXP, SEXP hdf5_pathSEXP, SEXP assay_groupSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type tenx_dir(tenx_dirSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type embeddings(embeddingsSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< std::string >::type metric(metricSEXP);
+    Rcpp::traits::input_parameter< int >::type n_trees(n_treesSEXP);
     Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
-    Rcpp::traits::input_parameter< std::string >::type assay(assaySEXP);
-    stream_10x_to_hdf5(tenx_dir, hdf5_path, assay);
+    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
+    cpp_find_neighbors(embeddings, k, metric, n_trees, hdf5_path, assay_group);
+    return R_NilValue;
+END_RCPP
+}
+// cpp_find_clusters
+List cpp_find_clusters(std::string hdf5_path, std::string assay_group, int algorithm, double resolution, int n_iter);
+RcppExport SEXP _scLean_cpp_find_clusters(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP algorithmSEXP, SEXP resolutionSEXP, SEXP n_iterSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
+    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
+    Rcpp::traits::input_parameter< int >::type algorithm(algorithmSEXP);
+    Rcpp::traits::input_parameter< double >::type resolution(resolutionSEXP);
+    Rcpp::traits::input_parameter< int >::type n_iter(n_iterSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_find_clusters(hdf5_path, assay_group, algorithm, resolution, n_iter));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_find_markers
+List cpp_find_markers(std::string hdf5_path, std::string assay_group, std::vector<int> clusters, int ident_1, int ident_2, int test_type, double logfc_threshold, double min_pct);
+RcppExport SEXP _scLean_cpp_find_markers(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP clustersSEXP, SEXP ident_1SEXP, SEXP ident_2SEXP, SEXP test_typeSEXP, SEXP logfc_thresholdSEXP, SEXP min_pctSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
+    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
+    Rcpp::traits::input_parameter< std::vector<int> >::type clusters(clustersSEXP);
+    Rcpp::traits::input_parameter< int >::type ident_1(ident_1SEXP);
+    Rcpp::traits::input_parameter< int >::type ident_2(ident_2SEXP);
+    Rcpp::traits::input_parameter< int >::type test_type(test_typeSEXP);
+    Rcpp::traits::input_parameter< double >::type logfc_threshold(logfc_thresholdSEXP);
+    Rcpp::traits::input_parameter< double >::type min_pct(min_pctSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_find_markers(hdf5_path, assay_group, clusters, ident_1, ident_2, test_type, logfc_threshold, min_pct));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_integrate
+void cpp_integrate(std::string hdf5_path, std::string assay_group, std::vector<int> batch_labels, int n_ccs, int n_mnn, double sigma, int max_iter);
+RcppExport SEXP _scLean_cpp_integrate(SEXP hdf5_pathSEXP, SEXP assay_groupSEXP, SEXP batch_labelsSEXP, SEXP n_ccsSEXP, SEXP n_mnnSEXP, SEXP sigmaSEXP, SEXP max_iterSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type hdf5_path(hdf5_pathSEXP);
+    Rcpp::traits::input_parameter< std::string >::type assay_group(assay_groupSEXP);
+    Rcpp::traits::input_parameter< std::vector<int> >::type batch_labels(batch_labelsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_ccs(n_ccsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_mnn(n_mnnSEXP);
+    Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    cpp_integrate(hdf5_path, assay_group, batch_labels, n_ccs, n_mnn, sigma, max_iter);
     return R_NilValue;
 END_RCPP
 }
@@ -418,14 +418,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_scLean_read_hdf5_float32", (DL_FUNC) &_scLean_read_hdf5_float32, 2},
     {"_scLean_read_dense_matrix", (DL_FUNC) &_scLean_read_dense_matrix, 2},
     {"_scLean_list_hdf5_groups", (DL_FUNC) &_scLean_list_hdf5_groups, 2},
-    {"_scLean_cpp_normalize", (DL_FUNC) &_scLean_cpp_normalize, 6},
-    {"_scLean_cpp_scale", (DL_FUNC) &_scLean_cpp_scale, 6},
-    {"_scLean_cpp_vst", (DL_FUNC) &_scLean_cpp_vst, 3},
-    {"_scLean_cpp_pca", (DL_FUNC) &_scLean_cpp_pca, 6},
-    {"_scLean_cpp_find_neighbors", (DL_FUNC) &_scLean_cpp_find_neighbors, 6},
-    {"_scLean_cpp_find_clusters", (DL_FUNC) &_scLean_cpp_find_clusters, 5},
-    {"_scLean_cpp_find_markers", (DL_FUNC) &_scLean_cpp_find_markers, 8},
-    {"_scLean_cpp_integrate", (DL_FUNC) &_scLean_cpp_integrate, 7},
+    {"_scLean_stream_10x_to_hdf5", (DL_FUNC) &_scLean_stream_10x_to_hdf5, 3},
     {"_scLean_cpp_current_rss", (DL_FUNC) &_scLean_cpp_current_rss, 0},
     {"_scLean_cpp_wall_time_ns", (DL_FUNC) &_scLean_cpp_wall_time_ns, 0},
     {"_scLean_suppress_hdf5_errors", (DL_FUNC) &_scLean_suppress_hdf5_errors, 0},
@@ -435,7 +428,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_scLean_cpp_bottleneck_type", (DL_FUNC) &_scLean_cpp_bottleneck_type, 0},
     {"_scLean_cpp_set_max_dense_chunk_mb", (DL_FUNC) &_scLean_cpp_set_max_dense_chunk_mb, 1},
     {"_scLean_cpp_get_max_dense_chunk_mb", (DL_FUNC) &_scLean_cpp_get_max_dense_chunk_mb, 0},
-    {"_scLean_stream_10x_to_hdf5", (DL_FUNC) &_scLean_stream_10x_to_hdf5, 3},
+    {"_scLean_cpp_normalize", (DL_FUNC) &_scLean_cpp_normalize, 6},
+    {"_scLean_cpp_scale", (DL_FUNC) &_scLean_cpp_scale, 6},
+    {"_scLean_cpp_vst", (DL_FUNC) &_scLean_cpp_vst, 3},
+    {"_scLean_cpp_pca", (DL_FUNC) &_scLean_cpp_pca, 6},
+    {"_scLean_cpp_find_neighbors", (DL_FUNC) &_scLean_cpp_find_neighbors, 6},
+    {"_scLean_cpp_find_clusters", (DL_FUNC) &_scLean_cpp_find_clusters, 5},
+    {"_scLean_cpp_find_markers", (DL_FUNC) &_scLean_cpp_find_markers, 8},
+    {"_scLean_cpp_integrate", (DL_FUNC) &_scLean_cpp_integrate, 7},
     {NULL, NULL, 0}
 };
 

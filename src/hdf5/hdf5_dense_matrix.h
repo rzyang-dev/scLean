@@ -2,7 +2,7 @@
 #define SCLEAN_HDF5_DENSE_MATRIX_H
 
 #include "hdf5_file.h"
-#include "matrix/disk_matrix.h"
+#include "core/disk_matrix.h"
 #include <string>
 #include <vector>
 

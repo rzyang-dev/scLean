@@ -54,16 +54,6 @@ private:
                                        ChunkScheduler& scheduler,
                                        int n_threads);
 
-    // Bin-based LOESS approximation for mean-variance trend
-    void fit_loess_binned(const std::vector<double>& log_means,
-                           const std::vector<double>& log_variances,
-                           std::vector<double>& fitted,
-                           int n_bins, double span);
-
-    // Select top variable features
-    void select_top_features(const std::vector<double>& vst_variances,
-                              std::vector<int8_t>& variable,
-                              int n_select);
 };
 
 } // namespace sclean

@@ -53,36 +53,8 @@ list_hdf5_groups <- function(hdf5_path, parent_path) {
     .Call(`_scLean_list_hdf5_groups`, hdf5_path, parent_path)
 }
 
-cpp_normalize <- function(hdf5_path, assay_group, method, scale_factor, chunk_size, in_memory) {
-    .Call(`_scLean_cpp_normalize`, hdf5_path, assay_group, method, scale_factor, chunk_size, in_memory)
-}
-
-cpp_scale <- function(hdf5_path, assay_group, do_scale, do_center, chunk_size, in_memory) {
-    .Call(`_scLean_cpp_scale`, hdf5_path, assay_group, do_scale, do_center, chunk_size, in_memory)
-}
-
-cpp_vst <- function(hdf5_path, assay_group, n_top) {
-    .Call(`_scLean_cpp_vst`, hdf5_path, assay_group, n_top)
-}
-
-cpp_pca <- function(hdf5_path, assay_group, npcs, tol, max_iter, feature_indices) {
-    .Call(`_scLean_cpp_pca`, hdf5_path, assay_group, npcs, tol, max_iter, feature_indices)
-}
-
-cpp_find_neighbors <- function(embeddings, k, metric, n_trees, hdf5_path, assay_group) {
-    invisible(.Call(`_scLean_cpp_find_neighbors`, embeddings, k, metric, n_trees, hdf5_path, assay_group))
-}
-
-cpp_find_clusters <- function(hdf5_path, assay_group, algorithm, resolution, n_iter) {
-    .Call(`_scLean_cpp_find_clusters`, hdf5_path, assay_group, algorithm, resolution, n_iter)
-}
-
-cpp_find_markers <- function(hdf5_path, assay_group, clusters, ident_1, ident_2, test_type, logfc_threshold, min_pct) {
-    .Call(`_scLean_cpp_find_markers`, hdf5_path, assay_group, clusters, ident_1, ident_2, test_type, logfc_threshold, min_pct)
-}
-
-cpp_integrate <- function(hdf5_path, assay_group, batch_labels, n_ccs, n_mnn = 20L, sigma = 0.1, max_iter = 2L) {
-    invisible(.Call(`_scLean_cpp_integrate`, hdf5_path, assay_group, batch_labels, n_ccs, n_mnn, sigma, max_iter))
+stream_10x_to_hdf5 <- function(tenx_dir, hdf5_path, assay = "RNA") {
+    invisible(.Call(`_scLean_stream_10x_to_hdf5`, tenx_dir, hdf5_path, assay))
 }
 
 cpp_current_rss <- function() {
@@ -121,7 +93,35 @@ cpp_get_max_dense_chunk_mb <- function() {
     .Call(`_scLean_cpp_get_max_dense_chunk_mb`)
 }
 
-stream_10x_to_hdf5 <- function(tenx_dir, hdf5_path, assay = "RNA") {
-    invisible(.Call(`_scLean_stream_10x_to_hdf5`, tenx_dir, hdf5_path, assay))
+cpp_normalize <- function(hdf5_path, assay_group, method, scale_factor, chunk_size, in_memory) {
+    .Call(`_scLean_cpp_normalize`, hdf5_path, assay_group, method, scale_factor, chunk_size, in_memory)
+}
+
+cpp_scale <- function(hdf5_path, assay_group, do_scale, do_center, chunk_size, in_memory) {
+    .Call(`_scLean_cpp_scale`, hdf5_path, assay_group, do_scale, do_center, chunk_size, in_memory)
+}
+
+cpp_vst <- function(hdf5_path, assay_group, n_top) {
+    .Call(`_scLean_cpp_vst`, hdf5_path, assay_group, n_top)
+}
+
+cpp_pca <- function(hdf5_path, assay_group, npcs, tol, max_iter, feature_indices = NULL) {
+    .Call(`_scLean_cpp_pca`, hdf5_path, assay_group, npcs, tol, max_iter, feature_indices)
+}
+
+cpp_find_neighbors <- function(embeddings, k, metric, n_trees, hdf5_path, assay_group) {
+    invisible(.Call(`_scLean_cpp_find_neighbors`, embeddings, k, metric, n_trees, hdf5_path, assay_group))
+}
+
+cpp_find_clusters <- function(hdf5_path, assay_group, algorithm, resolution, n_iter) {
+    .Call(`_scLean_cpp_find_clusters`, hdf5_path, assay_group, algorithm, resolution, n_iter)
+}
+
+cpp_find_markers <- function(hdf5_path, assay_group, clusters, ident_1, ident_2, test_type, logfc_threshold, min_pct) {
+    .Call(`_scLean_cpp_find_markers`, hdf5_path, assay_group, clusters, ident_1, ident_2, test_type, logfc_threshold, min_pct)
+}
+
+cpp_integrate <- function(hdf5_path, assay_group, batch_labels, n_ccs, n_mnn = 20L, sigma = 0.1, max_iter = 2L) {
+    invisible(.Call(`_scLean_cpp_integrate`, hdf5_path, assay_group, batch_labels, n_ccs, n_mnn, sigma, max_iter))
 }
 

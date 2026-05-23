@@ -1,11 +1,10 @@
 #include "integration_operator.h"
+#include "integration_internal.h"
 #include "utils/progress.h"
 #include "utils/resource_monitor.h"
 #include "utils/parallel.h"
 #include <algorithm>
 #include <cmath>
-#include <queue>
-#include <unordered_map>
 #include <stdexcept>
 #include <numeric>
 
@@ -21,7 +20,7 @@ IntegrationOperator::IntegrationOperator(int n_dims, int n_mnn,
       sigma_(sigma), max_iter_(max_iter) {}
 
 // ============================================================
-// Backward-compatible run() — delegates to scheduler overload
+// Backward-compatible run() -- delegates to scheduler overload
 // ============================================================
 
 IntegrationResult IntegrationOperator::run(
@@ -62,95 +61,8 @@ IntegrationOperator::adapt_params(const ChunkConfig& cfg) const {
 }
 
 // ============================================================
-// MNN pair finding
-//
-// Brute-force mutual nearest neighbor search: O(n1 * n2 * d).
-// For each cell in batch1, finds k nearest neighbors in batch2 using a
-// max-heap (priority_queue). Then checks reciprocity: cell i in batch1 and
-// cell j in batch2 are MNN pairs if i is in j's top-k AND j is in i's top-k.
-//
-// Performance note: this is O(n^2 * d) and becomes the bottleneck for large
-// batches. A future optimization could use Annoy for approximate MNN finding
-// when n_cells exceeds a threshold (cf. FindNeighbors threshold at 5000).
-// ============================================================
-
-std::vector<std::pair<int, int>> IntegrationOperator::find_mnn_pairs(
-    const Eigen::MatrixXd& batch1_emb,
-    const Eigen::MatrixXd& batch2_emb,
-    int k) {
-
-    int n1 = static_cast<int>(batch1_emb.rows());
-    int n2 = static_cast<int>(batch2_emb.rows());
-
-    // For each cell in batch1, find k nearest neighbors in batch2
-    std::vector<std::vector<int>> nn_b1_to_b2(n1);
-
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(dynamic)
-#endif
-    for (int i = 0; i < n1; ++i) {
-        std::priority_queue<std::pair<double, int>> heap;
-        for (int j = 0; j < n2; ++j) {
-            double dist_sq = (batch1_emb.row(i) - batch2_emb.row(j)).squaredNorm();
-            if (static_cast<int>(heap.size()) < k) {
-                heap.push({dist_sq, j});
-            } else if (dist_sq < heap.top().first) {
-                heap.pop();
-                heap.push({dist_sq, j});
-            }
-        }
-        std::vector<int>& nn_list = nn_b1_to_b2[i];
-        while (!heap.empty()) {
-            nn_list.push_back(heap.top().second);
-            heap.pop();
-        }
-        std::reverse(nn_list.begin(), nn_list.end());
-    }
-
-    // For each cell in batch2, find k nearest neighbors in batch1
-    std::vector<std::vector<int>> nn_b2_to_b1(n2);
-
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(dynamic)
-#endif
-    for (int j = 0; j < n2; ++j) {
-        std::priority_queue<std::pair<double, int>> heap;
-        for (int i = 0; i < n1; ++i) {
-            double dist_sq = (batch2_emb.row(j) - batch1_emb.row(i)).squaredNorm();
-            if (static_cast<int>(heap.size()) < k) {
-                heap.push({dist_sq, i});
-            } else if (dist_sq < heap.top().first) {
-                heap.pop();
-                heap.push({dist_sq, i});
-            }
-        }
-        std::vector<int>& nn_list = nn_b2_to_b1[j];
-        while (!heap.empty()) {
-            nn_list.push_back(heap.top().second);
-            heap.pop();
-        }
-        std::reverse(nn_list.begin(), nn_list.end());
-    }
-
-    // Find mutual nearest neighbors
-    std::vector<std::pair<int, int>> mnn_pairs;
-
-    for (int i = 0; i < n1; ++i) {
-        for (int j : nn_b1_to_b2[i]) {
-            for (int i2 : nn_b2_to_b1[j]) {
-                if (i2 == i) {
-                    mnn_pairs.emplace_back(i, j);
-                    break;
-                }
-            }
-        }
-    }
-
-    return mnn_pairs;
-}
-
-// ============================================================
-// Original compute_correction (delegates to config overload)
+// compute_correction (backward-compatible -- delegates to
+// scheduler overload with default config)
 // ============================================================
 
 Eigen::MatrixXd IntegrationOperator::compute_correction(
@@ -166,6 +78,14 @@ Eigen::MatrixXd IntegrationOperator::compute_correction(
 
 // ============================================================
 // compute_correction with scheduler config
+//
+// Orchestrates the correction pipeline by delegating to pure
+// functions from integration_internal.h:
+//   1. Split embeddings into reference / query
+//   2. find_mnn_pairs()     → integration_mnn.cpp
+//   3. compute_raw_correction() → integration_correct.cpp
+//   4. smooth_correction_gaussian() or _chunked()
+//   5. Map back to global index space
 // ============================================================
 
 Eigen::MatrixXd IntegrationOperator::compute_correction(
@@ -205,39 +125,28 @@ Eigen::MatrixXd IntegrationOperator::compute_correction(
         query_emb.row(i) = embeddings.row(query_idx[i]);
     }
 
-    // Find MNN pairs between reference and query
+    // Find MNN pairs between reference and query (pure function)
     auto mnn_pairs = find_mnn_pairs(ref_emb, query_emb, n_mnn_);
 
     if (mnn_pairs.empty()) return correction;
 
-    // Compute raw correction for query cells that have MNN pairs
-    std::unordered_map<int, std::vector<Eigen::VectorXd>> query_corrections;
-    for (auto& pair : mnn_pairs) {
-        int ref_cell = pair.first;
-        int query_cell = pair.second;
+    // Compute raw correction vectors from MNN pairs (pure function)
+    Eigen::MatrixXd raw_correction = compute_raw_correction(
+        ref_emb, query_emb, mnn_pairs);
 
-        Eigen::VectorXd vec = ref_emb.row(ref_cell) - query_emb.row(query_cell);
-        if (!query_corrections.count(query_cell)) {
-            query_corrections[query_cell] = std::vector<Eigen::VectorXd>();
-        }
-        query_corrections[query_cell].push_back(vec);
+    // Smooth correction: select full or chunked path based on config
+    Eigen::MatrixXd smoothed_query;
+    if (cfg.fits_in_memory &&
+        cfg.bottleneck != Bottleneck::MemoryBound &&
+        cfg.bottleneck != Bottleneck::BothBound) {
+        smoothed_query = smooth_correction_gaussian(
+            query_emb, raw_correction, sigma_);
+    } else {
+        int64 chunk_size = cfg.chunk_size;
+        if (chunk_size <= 0) chunk_size = 1024;
+        smoothed_query = smooth_correction_gaussian_chunked(
+            query_emb, raw_correction, sigma_, chunk_size, n_threads);
     }
-
-    // Average correction per query cell
-    for (auto& kv : query_corrections) {
-        int q = kv.first;
-        Eigen::VectorXd avg_correction = Eigen::VectorXd::Zero(d);
-        for (auto& v : kv.second) {
-            avg_correction += v;
-        }
-        avg_correction /= static_cast<double>(kv.second.size());
-
-        correction.row(query_idx[q]) = avg_correction;
-    }
-
-    // Smooth correction using adaptive path selection
-    Eigen::MatrixXd smoothed_query = smooth_correction_adaptive(
-        query_emb, correction, sigma_, cfg, n_threads);
 
     // Map smoothed corrections back to global cell indices
     Eigen::MatrixXd result = Eigen::MatrixXd::Zero(n_cells, d);
@@ -246,154 +155,6 @@ Eigen::MatrixXd IntegrationOperator::compute_correction(
     }
 
     return result;
-}
-
-// ============================================================
-// Gaussian kernel smoothing (original full-matrix path)
-// ============================================================
-
-Eigen::MatrixXd IntegrationOperator::smooth_correction(
-    const Eigen::MatrixXd& query_emb,
-    const Eigen::MatrixXd& raw_correction,
-    double sigma) {
-
-    int n = static_cast<int>(query_emb.rows());
-    int d = static_cast<int>(query_emb.cols());
-
-    Eigen::MatrixXd smoothed = Eigen::MatrixXd::Zero(n, d);
-
-    // Only smooth for cells that have a non-zero correction
-    std::vector<int> cells_with_correction;
-    for (int i = 0; i < n; ++i) {
-        if (raw_correction.row(i).squaredNorm() > 0) {
-            cells_with_correction.push_back(i);
-        }
-    }
-
-    if (cells_with_correction.empty()) return smoothed;
-
-    // Gaussian kernel smoothing
-    //
-    // Bandwidth = sigma * ||first_row_of_query_emb||
-    // This is a data-driven heuristic: the bandwidth scales with the embedding
-    // magnitude so that the smoothing radius adapts to the data scale. The user
-    // parameter `sigma` acts as a relative multiplier on this base bandwidth.
-    // A fixed absolute bandwidth would be either too narrow (overfitting) or
-    // too wide (over-smoothing) depending on the PCA embedding magnitude.
-    double bandwidth = sigma * query_emb.row(0).stableNorm();
-
-    if (bandwidth < 1e-6) bandwidth = 1.0;
-
-    for (int i = 0; i < n; ++i) {
-        double weight_sum = 0.0;
-        Eigen::VectorXd weighted_correction = Eigen::VectorXd::Zero(d);
-
-        for (int j : cells_with_correction) {
-            double dist_sq = (query_emb.row(i) - query_emb.row(j)).squaredNorm();
-            double w = std::exp(-dist_sq / (2.0 * bandwidth * bandwidth));
-            weighted_correction += w * raw_correction.row(j).transpose();
-            weight_sum += w;
-        }
-
-        if (weight_sum > 1e-10) {
-            smoothed.row(i) = weighted_correction / weight_sum;
-        }
-    }
-
-    return smoothed;
-}
-
-// ============================================================
-// Adaptive smoothing: selects full or chunked path
-// ============================================================
-
-Eigen::MatrixXd IntegrationOperator::smooth_correction_adaptive(
-    const Eigen::MatrixXd& query_emb,
-    const Eigen::MatrixXd& raw_correction,
-    double sigma,
-    const ChunkConfig& cfg,
-    int n_threads) {
-
-    if (cfg.fits_in_memory &&
-        cfg.bottleneck != Bottleneck::MemoryBound &&
-        cfg.bottleneck != Bottleneck::BothBound) {
-        return smooth_correction(query_emb, raw_correction, sigma);
-    }
-
-    int64 chunk_size = cfg.chunk_size;
-    if (chunk_size <= 0) chunk_size = 1024;
-    return smooth_correction_chunked(query_emb, raw_correction,
-                                      sigma, chunk_size, n_threads);
-}
-
-// ============================================================
-// Chunked Gaussian kernel smoothing
-// ============================================================
-
-Eigen::MatrixXd IntegrationOperator::smooth_correction_chunked(
-    const Eigen::MatrixXd& query_emb,
-    const Eigen::MatrixXd& raw_correction,
-    double sigma,
-    int64 chunk_size,
-    int n_threads) {
-
-    int n = static_cast<int>(query_emb.rows());
-    int d = static_cast<int>(query_emb.cols());
-
-    // Identify source cells (those with non-zero corrections)
-    std::vector<int> src_cells;
-    src_cells.reserve(n);
-    for (int i = 0; i < n; ++i) {
-        if (raw_correction.row(i).squaredNorm() > 0) {
-            src_cells.push_back(i);
-        }
-    }
-
-    int n_src = static_cast<int>(src_cells.size());
-    if (n_src == 0) return Eigen::MatrixXd::Zero(n, d);
-
-    // Pre-extract source embeddings and correction vectors
-    Eigen::MatrixXd src_emb(n_src, d);
-    Eigen::MatrixXd src_correction(n_src, d);
-    for (int k = 0; k < n_src; ++k) {
-        int idx = src_cells[k];
-        src_emb.row(k) = query_emb.row(idx);
-        src_correction.row(k) = raw_correction.row(idx);
-    }
-
-    double bandwidth = sigma * query_emb.row(0).stableNorm();
-    if (bandwidth < 1e-6) bandwidth = 1.0;
-    double inv_two_sigma2 = 1.0 / (2.0 * bandwidth * bandwidth);
-
-    Eigen::MatrixXd smoothed = Eigen::MatrixXd::Zero(n, d);
-
-    int actual_threads = (n_threads > 1) ? n_threads : 1;
-    int64 csize = chunk_size;
-
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(dynamic) num_threads(actual_threads)
-#endif
-    for (int t_start = 0; t_start < n; t_start += csize) {
-        int t_end = std::min(t_start + static_cast<int>(csize), n);
-
-        for (int i = t_start; i < t_end; ++i) {
-            double weight_sum = 0.0;
-            Eigen::VectorXd weighted = Eigen::VectorXd::Zero(d);
-
-            for (int k = 0; k < n_src; ++k) {
-                double dist_sq = (query_emb.row(i) - src_emb.row(k)).squaredNorm();
-                double w = std::exp(-dist_sq * inv_two_sigma2);
-                weighted.noalias() += w * src_correction.row(k).transpose();
-                weight_sum += w;
-            }
-
-            if (weight_sum > 1e-10) {
-                smoothed.row(i) = weighted / weight_sum;
-            }
-        }
-    }
-
-    return smoothed;
 }
 
 // ============================================================
@@ -406,11 +167,9 @@ Eigen::MatrixXd IntegrationOperator::smooth_correction_chunked(
 // 3. Reference batch = batch with the most cells (ties resolved by first
 //    encountered in the sorted batch list).
 // 4. Iterative correction (max_iter rounds):
-//    a. For each non-reference batch, find MNN pairs with the reference.
-//    b. Compute correction vectors from MNN pairs.
-//    c. Smooth correction vectors via Gaussian kernel (full or chunked path,
-//       selected adaptively based on available resources).
-//    d. Add smoothed correction to the batch's embeddings.
+//    a. For each non-reference batch, compute correction via
+//       compute_correction() which delegates to pure functions.
+//    b. Accumulate corrections and add to embeddings.
 // 5. OOM recovery: catch bad_alloc, call scheduler.shrink_and_retry(),
 //    retry recursively.
 //
@@ -419,7 +178,7 @@ Eigen::MatrixXd IntegrationOperator::smooth_correction_chunked(
 // as a "harmony" DimReduc. This naming is for Seurat ecosystem compatibility:
 // Seurat's HarmonyIntegration stores corrected embeddings under "harmony",
 // and downstream functions (DimPlot, FeaturePlot) look for this key. The
-// algorithm used here is MNN (mutual nearest neighbors), NOT Harmony — the
+// algorithm used here is MNN (mutual nearest neighbors), NOT Harmony -- the
 // two are different methods but share the same output slot convention.
 // ============================================================
 

@@ -29,10 +29,15 @@
 #' }
 #' @seealso \code{\link{FindNeighbors.Seurat}}, \code{\link{FindMarkers.Seurat}}
 #' @export
-FindClusters.Seurat <- function(object, algorithm = "leiden", resolution = 0.8, n.iter = 10, ...) {
-  assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-  if (inherits(sc_assay, "scLeanAssay")) {
+FindClusters.Seurat <- function(
+    object,
+    algorithm = "leiden",
+    resolution = 0.8,
+    n.iter = 10,
+    ...
+) {
+  sc_assay <- extract_sc_assay(object)
+  if (!is.null(sc_assay)) {
     return(FindClusters.scLeanAssay(object, algorithm = algorithm,
       resolution = resolution, n.iter = n.iter, ...))
   }
@@ -49,12 +54,7 @@ FindClusters.scLeanAssay <- function(
     ...
 ) {
   assay <- SeuratObject::DefaultAssay(object)
-  sc_assay <- object@assays[[assay]]
-
-  if (!inherits(sc_assay, "scLeanAssay")) {
-    return(Seurat::FindClusters(object, algorithm = algorithm,
-      resolution = resolution, n.iter = n.iter, ...))
-  }
+  sc_assay <- extract_sc_assay(object, assay)
 
   cpp_find_clusters(
     hdf5_path   = sc_assay@hdf5_path,

@@ -48,46 +48,19 @@ private:
     // Adapt algorithm parameters based on resource bottleneck
     IntegrationParams adapt_params(const ChunkConfig& cfg) const;
 
-    // Find mutual nearest neighbors between two batches
-    std::vector<std::pair<int, int>> find_mnn_pairs(
-        const Eigen::MatrixXd& batch1_emb,
-        const Eigen::MatrixXd& batch2_emb,
-        int k);
-
     // Compute correction vectors for each cell based on MNN pairs
+    // (backward-compatible overload -- delegates to scheduler version)
     Eigen::MatrixXd compute_correction(
         const Eigen::MatrixXd& embeddings,
         const std::vector<int32>& batch_labels,
         int reference_batch);
 
-    // Compute correction with scheduler config (selects full/chunked)
+    // Compute correction with scheduler config (selects full/chunked smoothing)
     Eigen::MatrixXd compute_correction(
         const Eigen::MatrixXd& embeddings,
         const std::vector<int32>& batch_labels,
         int reference_batch,
         const ChunkConfig& cfg,
-        int n_threads);
-
-    // Apply Gaussian kernel smoothing to correction vectors (original)
-    Eigen::MatrixXd smooth_correction(
-        const Eigen::MatrixXd& query_emb,
-        const Eigen::MatrixXd& raw_correction,
-        double sigma);
-
-    // Select full-matrix or chunked smoothing based on config
-    Eigen::MatrixXd smooth_correction_adaptive(
-        const Eigen::MatrixXd& query_emb,
-        const Eigen::MatrixXd& raw_correction,
-        double sigma,
-        const ChunkConfig& cfg,
-        int n_threads);
-
-    // Chunked Gaussian kernel smoothing: processes target cells in blocks
-    Eigen::MatrixXd smooth_correction_chunked(
-        const Eigen::MatrixXd& query_emb,
-        const Eigen::MatrixXd& raw_correction,
-        double sigma,
-        int64 chunk_size,
         int n_threads);
 };
 
