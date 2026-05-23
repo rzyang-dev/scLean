@@ -148,14 +148,34 @@ saveRDS(obj, file = "sclean_obj.rds")  # Small: only metadata + HDF5 path
 
 ```
 src/
-  hdf5/         HDF5 file I/O, CSC/dense matrix wrappers
-  normalize/    Log-normalization and VST
-  scale/        Centering, scaling, regression
-  pca/          IRLBA-based PCA
+  core/         Common interfaces: PipelineOperator, DataSource, DiskMatrix
+  hdf5/         HDF5 file I/O, CSC/dense matrix wrappers, streaming writer
+  normalize/    LogNormalize, CLR, RelativeCounts (+ VST feature selection)
+  scale/        Centering and scaling (Welford algorithm)
+  pca/          IRLBA-based PCA with Lanczos bidiagonalization
   neighbors/    KNN/SNN graph construction and Louvain/Leiden clustering
-  markers/      Wilcoxon/t-test differential expression
+  markers/      Wilcoxon/t-test/logistic regression differential expression
   integration/  MNN-based batch correction with Gaussian kernel smoothing
-  utils/        Chunk scheduler, memory pool, progress reporting
+  io/           Streaming 10X MTX directory parser
+  utils/        Chunk scheduler, resource monitor, thread governor, progress
+R/
+  generics.R          S3 generics re-exported from Seurat/SeuratObject
+  dispatch-helpers.R  Shared dispatch helpers (extract_sc_assay, resolve_chunk_size)
+  normalize.R         NormalizeData.scLeanAssay
+  scale.R             ScaleData.scLeanAssay
+  vst.R               FindVariableFeatures.scLeanAssay
+  pca.R               RunPCA.Seurat → RunPCA.scLeanAssay
+  neighbors.R         FindNeighbors.Seurat → FindNeighbors.scLeanAssay
+  clustering.R        FindClusters.Seurat → FindClusters.scLeanAssay
+  markers.R           FindMarkers / FindAllMarkers
+  integration.R       IntegrateData.scLean
+  sclean-class.R      scLeanAssay S4 class + LogMap helpers
+  hdf5-matrix.R       HDF5BackedMatrix R6 proxy class
+  io-load.R           LoadScleanObject (main entry point)
+  io-10x.R            10X Genomics streaming import
+  io-convert.R        as.scLean / as.Seurat.scLean
+  io-assay.R          CreateSCleanAssayFromHDF5
+  chunk-control.R     SetChunkSize, SetMaxRAM, SetThreads, MemoryReport
 ```
 
 ## FAQ
