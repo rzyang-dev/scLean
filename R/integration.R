@@ -45,6 +45,16 @@ IntegrateData.scLean <- function(
     stop("Batch variable '", batch, "' not found in object metadata")
   }
 
+  # Batch label encoding:
+  # as.factor() orders levels alphabetically, then as.integer() assigns 1-based
+  # codes. The C++ side uses these integer codes directly. The reference batch
+  # (largest) is determined inside the C++ operator, not here.
+  #
+  # The "harmony" reduction name is for Seurat compatibility:
+  # Seurat's IntegrateLayers with HarmonyIntegration stores embeddings under
+  # "harmony". scLean stores MNN-corrected embeddings under the same key so
+  # that downstream Seurat functions (DimPlot, FeaturePlot) can find them
+  # without modification. THE CORRECTED EMBEDDINGS USE MNN, NOT HARMONY.
   batch_int <- as.integer(as.factor(batch_labels))
 
   cpp_integrate(

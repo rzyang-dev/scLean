@@ -252,6 +252,17 @@ double MarkerOperator::ttest_pval(
 
 // ============================================================
 // Logistic regression (simplified score test)
+//
+// This is a Rao score test approximation, NOT a full iteratively reweighted
+// least squares (IRLS) logistic regression. The algorithm:
+// 1. Builds binary response: 1 = ident_1, 0 = ident_2 (or all others when ident_2 < 0).
+// 2. Computes a correlation-based score statistic via the covariance of
+//    gene expression with the binary response.
+// 3. Derives a chi-squared(1) p-value from the score statistic.
+//
+// Trade-off: ~10× faster than full IRLS but less accurate for extreme effect
+// sizes (the score test can be conservative). For high-precision p-values on
+// top markers, re-run with test.use = "wilcox" which uses exact ranks.
 // ============================================================
 
 double MarkerOperator::logistic_regression_pval(

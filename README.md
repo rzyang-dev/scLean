@@ -154,7 +154,7 @@ src/
   pca/          IRLBA-based PCA
   neighbors/    KNN/SNN graph construction and Louvain/Leiden clustering
   markers/      Wilcoxon/t-test differential expression
-  integration/  CCA-based batch integration
+  integration/  MNN-based batch correction with Gaussian kernel smoothing
   utils/        Chunk scheduler, memory pool, progress reporting
 ```
 

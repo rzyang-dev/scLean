@@ -63,6 +63,15 @@ IntegrationOperator::adapt_params(const ChunkConfig& cfg) const {
 
 // ============================================================
 // MNN pair finding
+//
+// Brute-force mutual nearest neighbor search: O(n1 * n2 * d).
+// For each cell in batch1, finds k nearest neighbors in batch2 using a
+// max-heap (priority_queue). Then checks reciprocity: cell i in batch1 and
+// cell j in batch2 are MNN pairs if i is in j's top-k AND j is in i's top-k.
+//
+// Performance note: this is O(n^2 * d) and becomes the bottleneck for large
+// batches. A future optimization could use Annoy for approximate MNN finding
+// when n_cells exceeds a threshold (cf. FindNeighbors threshold at 5000).
 // ============================================================
 
 std::vector<std::pair<int, int>> IntegrationOperator::find_mnn_pairs(
@@ -264,6 +273,13 @@ Eigen::MatrixXd IntegrationOperator::smooth_correction(
     if (cells_with_correction.empty()) return smoothed;
 
     // Gaussian kernel smoothing
+    //
+    // Bandwidth = sigma * ||first_row_of_query_emb||
+    // This is a data-driven heuristic: the bandwidth scales with the embedding
+    // magnitude so that the smoothing radius adapts to the data scale. The user
+    // parameter `sigma` acts as a relative multiplier on this base bandwidth.
+    // A fixed absolute bandwidth would be either too narrow (overfitting) or
+    // too wide (over-smoothing) depending on the PCA embedding magnitude.
     double bandwidth = sigma * query_emb.row(0).stableNorm();
 
     if (bandwidth < 1e-6) bandwidth = 1.0;
@@ -382,6 +398,29 @@ Eigen::MatrixXd IntegrationOperator::smooth_correction_chunked(
 
 // ============================================================
 // Main integration routine (scheduler-aware)
+//
+// Algorithm flow:
+// 1. Find unique batches; if only 1 batch, return PCA embeddings as-is.
+// 2. Schedule resources via ChunkScheduler; adapt algorithm parameters under
+//    resource pressure (reduce n_mnn, enable chunked smoothing).
+// 3. Reference batch = batch with the most cells (ties resolved by first
+//    encountered in the sorted batch list).
+// 4. Iterative correction (max_iter rounds):
+//    a. For each non-reference batch, find MNN pairs with the reference.
+//    b. Compute correction vectors from MNN pairs.
+//    c. Smooth correction vectors via Gaussian kernel (full or chunked path,
+//       selected adaptively based on available resources).
+//    d. Add smoothed correction to the batch's embeddings.
+// 5. OOM recovery: catch bad_alloc, call scheduler.shrink_and_retry(),
+//    retry recursively.
+//
+// NOTE ON NAMING: The corrected embeddings are stored under the key "harmony"
+// in the HDF5 file (/reductions/harmony/embeddings) and in the Seurat object
+// as a "harmony" DimReduc. This naming is for Seurat ecosystem compatibility:
+// Seurat's HarmonyIntegration stores corrected embeddings under "harmony",
+// and downstream functions (DimPlot, FeaturePlot) look for this key. The
+// algorithm used here is MNN (mutual nearest neighbors), NOT Harmony — the
+// two are different methods but share the same output slot convention.
 // ============================================================
 
 IntegrationResult IntegrationOperator::run(
@@ -429,7 +468,8 @@ IntegrationResult IntegrationOperator::run(
     ProgressReporter progress("IntegrateLayers", params.max_iter,
                               ProgressReporter::is_verbose());
 
-    // Use the largest batch as reference
+    // Use the largest batch as reference (ties broken by first encountered).
+    // Cells without MNN pairs receive zero correction vectors.
     int ref_batch = unique_batches[0];
     int ref_count = 0;
     for (int32 b : unique_batches) {

@@ -1,9 +1,16 @@
 #' HDF5BackedMatrix: A matrix proxy backed by HDF5 storage
 #'
-#' This R6 class implements the standard R matrix interface (dim, dimnames, [, [<-, t, %*%)
-#' but reads/writes data from HDF5 on the fly. Designed to be a drop-in replacement
-#' for dgCMatrix in Seurat layers.
+#' This R6 class provides a READ-ONLY matrix interface backed by HDF5 storage.
+#' All write operations go through C++ pipeline operators which write new datasets
+#' to HDF5 directly. There is no `[<-` method and no in-place modification.
 #'
+#' IMPORTANT LIMITATIONS:
+#' - `[` subsetting only supports CONTIGUOUS index ranges. The C++ function
+#'   `read_hdf5_dense_chunk` takes (start, count) pairs, not arbitrary index
+#'   vectors. Non-contiguous subsets materialize to memory.
+#' - `t()` materializes the entire matrix to memory (via as_matrix()).
+#'   A lazy CSC transpose would require building a CSR index; not yet implemented.
+#' - CSC storage format (compressed sparse column) is assumed throughout.
 #' @export
 HDF5BackedMatrix <- R6::R6Class(
   "HDF5BackedMatrix",

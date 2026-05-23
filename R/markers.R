@@ -66,11 +66,16 @@ FindMarkers.scLeanAssay <- function(
 
   idents <- SeuratObject::Idents(object)
   clusters <- as.integer(idents)
+  # Test-type mapping: integer codes for C++ interop.
+  # Unrecognized test.use values return NA_integer_, which is passed silently
+  # to C++ — validation happens in the C++ layer.
   test_map <- c(wilcox = 0L, t = 1L, LR = 2L)
 
   ident_map <- setNames(seq_along(levels(idents)), levels(idents))
   ident_1_int <- ident_map[as.character(ident.1)]
   if (is.na(ident_1_int)) stop("ident.1 '", ident.1, "' not found in Idents")
+  # ident.2=NULL sentinel: -1L in C++ signals "test against all other clusters".
+  # -1L was chosen because 0 is a valid cluster ID (C++ uses 0-based indices).
   ident_2_int <- if (is.null(ident.2)) -1L else {
     val <- ident_map[as.character(ident.2)]
     if (is.na(val)) stop("ident.2 '", ident.2, "' not found in Idents")
@@ -90,7 +95,10 @@ FindMarkers.scLeanAssay <- function(
 
   # Convert to R data frame
   gene_names <- read_strings_from_hdf5(sc_assay@hdf5_path, "/features/names")
-  # result is a list of lists from Rcpp; convert to data frame
+  # result is a list of per-gene result lists from C++.
+  # Each element becomes a one-row data.frame via as.data.frame();
+  # rbind assembles them into a single data.frame.
+  # Gene names are resolved post-hoc: gene_idx is 0-based (C++), +1 for R indexing.
   df <- do.call(rbind, lapply(result, as.data.frame))
   if (nrow(df) > 0) {
     df$gene <- gene_names[df$gene_idx + 1]

@@ -61,6 +61,25 @@ int64 ChunkScheduler::detect_free_ram() {
 }
 
 // --- Operation multipliers ---
+//
+// Each multiplier M represents the peak temporary-memory-to-read-buffer ratio.
+// The multiplier captures: 1× for the read buffer itself + additional memory
+// for intermediate computation buffers and results.
+//
+// Breakdown:
+//   Normalize (M=3):    1× read + 1× log/RLE transform result + 1× Welford accumulators
+//   Scale (M=6):        1× read + 1× centered result + 4× regression design matrix intermediates
+//   ScaleSimple (M=2):  1× read + 1× centered result (no regression, less intermediate state)
+//   VST (M=4):          1× read + 1× binned means + 1× binned variances + 1× fit temporary
+//   PCA (M=2.5):        1× read + 0.5× matvec output + 1× Lanczos vector state
+//   FindMarkers (M=4):  1× read + 1× group-split arrays + 1× rank buffers + 1× p-value workspace
+//   FindNeighbors (M=3): 1× read + 1× distance matrix + 1× index/heap buffers
+//   Integration (M=5):  1× read + 1× MNN distance matrix + 1× correction vectors
+//                       + 1× smoothed output + 1× Gaussian kernel workspace
+//
+// These are conservative estimates tuned on gene expression data (sparse, ~5-10% dense).
+// Dense data may need higher multipliers; the 128 MB hard cap on dense chunks (set via
+// scLean.max_dense_chunk_mb) provides a safety net.
 
 double ChunkScheduler::op_multiplier(OperationType op) {
     switch (op) {
@@ -130,6 +149,26 @@ void ChunkScheduler::clear_override() {
 }
 
 // --- Core scheduling logic (shared implementation) ---
+//
+// Algorithm:
+// 1. If chunk_override is set (>0), use it directly — no auto-sizing.
+// 2. Compute usable budget B = usable_ram - extra_buffers - parallel_overhead,
+//    where parallel_overhead = compute_buf * (n_threads - 1).
+// 3. chunk_size = floor(B / (stride * elem_size * M)), clamped to min/max bounds.
+// 4. Check fits_in_memory: full matrix + multiplier fits in B.
+// 5. Hard cap: if dense read buffer exceeds max_dense_bytes (128 MB default),
+//    shrink chunk_size. This safety cap prevents single-chunk OOM.
+//
+// Column-chunked (axis=Columns):
+//   stride = n_rows, chunk_size in columns.
+//   Used for: Normalize, VST
+//
+// Row-chunked (axis=Rows):
+//   stride = n_cols, chunk_size in rows.
+//   Used for: Scale, PCA, FindMarkers, FindNeighbors, Integration
+//
+// Note: ChunkAxis::Rows means the operation processes rows, but the actual
+// chunk dimension is also measured in rows (element count = stride * chunk_size).
 
 static ChunkConfig schedule_impl(int64 R, int64 C, ChunkAxis axis,
                                   double M, int64 B, int64 n_threads,
@@ -364,6 +403,18 @@ ChunkConfig ChunkScheduler::schedule(
     return cfg;
 }
 
+// 3-level OOM recovery strategy:
+// When a pipeline operator catches std::bad_alloc, it calls shrink_and_retry().
+//
+// Level 1 (retry 1): Halve the chunk size from its current value.
+// Level 2 (retry 2): Halve again.
+// Level 3 (retry 3): Halve again, down to floor of 128.
+// Fail (retry > 3): return false — caller should propagate the error.
+//
+// Each successful shrinkage sets the halved size as a chunk_override so that
+// subsequent schedule() calls within the same operation use the smaller chunks.
+// The override is cleared via clear_override() when the operation completes
+// (or fails out entirely).
 bool ChunkScheduler::shrink_and_retry(
     const DiskMatrix& matrix, OperationType op, int64 n_threads, ChunkConfig& config) {
     return shrink_and_retry(matrix.n_rows(), matrix.n_cols(), op, n_threads, config);

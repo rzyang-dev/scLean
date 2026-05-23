@@ -275,6 +275,20 @@ ClusterResult ClusterOperator::louvain(
 // ============================================================
 // Leiden refinement: split communities into well-connected
 // sub-communities (Traag, Waltman & van Eck, 2019)
+//
+// Algorithm:
+// 1. Within each community from the Louvain-style local-moving pass, treat
+//    the community as a subgraph and run a localized optimization.
+// 2. This split-merging ensures communities are well-connected internally
+//    (a weakness of plain Louvain, which can produce disconnected communities).
+// 3. Merge sub-communities if merging improves modularity beyond the resolution
+//    threshold (gamma=1.0 for the well-connectedness condition, hardcoded).
+//
+// Known issue: at resolution=0.8 on some datasets, Leiden refinement can
+// produce excessive clusters (300+ on 28K cells). This may be due to:
+// (a) the SNN graph being too sparse (prune threshold = 1/15 is aggressive),
+// (b) the refinement over-splitting when the k-NN graph has many disconnected
+// components. Investigation is ongoing (see KNOWN-ISSUES.md #5).
 // ============================================================
 
 std::vector<int32> ClusterOperator::leiden_refine(

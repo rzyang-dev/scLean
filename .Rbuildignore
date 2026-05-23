@@ -15,3 +15,6 @@
 ^LICENSE$
 ^doc$
 ^Meta$
+^CLAUDE\.md$
+^HDF5-SCHEMA\.md$
+^KNOWN-ISSUES\.md$

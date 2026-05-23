@@ -1,5 +1,19 @@
 #' Set chunk size for the next operation
 #'
+#' scLean configuration is stored in R global options (scLean.* namespace).
+#' This means configuration is **per R session**, NOT per-object. Two scLean
+#' objects in the same session share the same chunk_size, max_ram, threads,
+#' and verbose settings.
+#'
+#' Options:
+#'   scLean.chunk_size  - integer or NULL (auto)
+#'   scLean.max_ram     - bytes or NULL (auto-detect)
+#'   scLean.threads     - integer or NULL (single-threaded)
+#'   scLean.verbose     - logical (default TRUE)
+#'
+#' Internal helpers (.get_chunk_override, .get_max_ram_bytes, etc.) provide
+#' zero-values (0 or NULL) as sentinels that signal the C++ scheduler to
+#' auto-detect. See chunk_scheduler.cpp for the C++ side of this contract.
 #' @param object  A Seurat/scLean object
 #' @param size  Number of rows/columns per chunk (NA to restore auto)
 #' @return The object, invisibly

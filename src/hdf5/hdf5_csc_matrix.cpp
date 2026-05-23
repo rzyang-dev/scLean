@@ -89,6 +89,17 @@ void HDF5CSCMatrix::build_row_ptr(int64 n_rows, int64 n_cols,
 }
 
 // --- Constructor: open existing ---
+//
+// Constructor flow:
+// 1. Open datasets (data, indices, indptr) from the HDF5 group.
+// 2. Read dimensions from the "shape" attribute or dataset extents.
+// 3. Optionally build the in-memory row_ptr cache (CSR row pointers) from
+//    indices + indptr. This cache enables O(1) row-slice queries at the cost
+//    of ~ (n_rows+1) * 8 bytes. It is built lazily (via ensure_row_ptr) and
+//    never written back to HDF5, preventing corruption during read operations.
+// 4. If thread_file is set (not -1), use a per-thread HDF5 file handle for
+//    parallel reads with OpenMP. Thread-local handles prevent HDF5 library
+//    contention when HDF5 was NOT built with --enable-threadsafe.
 
 HDF5CSCMatrix::HDF5CSCMatrix(HDF5File* file, const std::string& group_path,
                                hid_t thread_file)

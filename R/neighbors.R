@@ -67,6 +67,9 @@ FindNeighbors.scLeanAssay <- function(
     stop("Reduction '", reduction, "' not found. Run RunPCA first.")
   }
 
+  # PCA embeddings are always fully loaded into R memory here.
+  # Seurat's Embeddings() function requires an in-memory matrix.
+  # For 500K cells × 30 PCs, this is ~120 MB — a primary RAM consumer.
   embeddings <- SeuratObject::Embeddings(object, reduction = reduction)
   npcs <- ncol(embeddings)
   if (is.null(dims)) {
@@ -88,6 +91,9 @@ FindNeighbors.scLeanAssay <- function(
   nn_idx <- read_hdf5_int32(sc_assay@hdf5_path, paste0(nn_path, "/indices"))
   nn_dists <- read_hdf5_float32(sc_assay@hdf5_path, paste0(nn_path, "/distances"))
 
+  # C++ stores NN indices in column-major order (Fortran convention).
+  # byrow=FALSE reads column-by-column, matching the memory layout.
+  # Using byrow=TRUE would produce completely wrong neighbor assignments.
   nn_mat <- matrix(nn_idx, nrow = ncol(sc_assay), byrow = FALSE)
   colnames(nn_mat) <- paste0("NN_", seq_len(k.param))
   object[[paste0(assay, "_nn")]] <- nn_mat

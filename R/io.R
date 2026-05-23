@@ -41,6 +41,12 @@ LoadScleanObject <- function(
     if (file.exists(input)) {
       groups <- list_hdf5_groups(input, "/")
       if ("matrix" %in% groups) {
+        # CellRanger .h5 detection: "matrix" group indicates CellRanger v3 format.
+        # CURRENT LIMITATION: Seurat::Read10X_h5() reads the ENTIRE matrix into
+        # R memory before writing to scLean's HDF5, defeating the streaming
+        # advantage. A future improvement would stream directly from CellRanger
+        # .h5 to scLean .h5 without the intermediate in-memory dgCMatrix.
+        # See KNOWN-ISSUES.md #4.
         if (requireNamespace("Seurat", quietly = TRUE)) {
           counts <- Seurat::Read10X_h5(input)
           assay_obj <- CreateSCleanAssay(counts, hdf5_path = hdf5_path, assay = assay)
@@ -59,9 +65,11 @@ LoadScleanObject <- function(
     stop("Unsupported input type: ", class(input)[1])
   }
 
-  # Create Seurat object using the assay_obj's cell/feature names
-  cell_names <- colnames(assay_obj)
-  gene_names <- rownames(assay_obj)
+  # CreateSeuratObject() requires a counts matrix. We provide a 1×1 sparse
+  # placeholder that satisfies the constructor arguments, then immediately
+  # overwrite it with the actual scLeanAssay. This avoids materializing the
+  # full expression matrix in memory. The placeholder's dimensions must match
+  # the actual data dimensions so CreateSeuratObject's internal validation passes.
   placeholder <- Matrix::sparseMatrix(
     i = 1, j = 1, x = 1,
     dims = c(length(gene_names), length(cell_names)),

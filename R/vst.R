@@ -48,6 +48,10 @@ FindVariableFeatures.scLeanAssay <- function(
 
   # Read variable features from HDF5
   vf <- read_strings_from_hdf5(sc_assay@hdf5_path, "/features/names")
+  # NOTE: read_vector_int8 is a misnomer — the underlying C++ function reads
+  # int32 (4-byte integers), not int8 (1-byte). Variable-feature flags are 0/1,
+  # so the comparison `is_var == 1` works correctly in both types.
+  # Renaming would break the RcppExports generation and is deferred.
   is_var <- read_vector_int8(sc_assay@hdf5_path,
                               paste0(sc_assay@hdf5_group, "/features/variable"))
 

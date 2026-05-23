@@ -82,7 +82,14 @@ CreateSCleanAssay <- function(
   # Set up inherited Assay5 slots for Seurat integration
   assay_obj@cells <- SeuratObject::LogMap(cn)
   assay_obj@features <- SeuratObject::LogMap(rn)
-  # Register the counts layer in the LogMaps
+
+  # LogMap init contract:
+  # Seurat v5 Assay5 requires that cell/feature LogMaps track which layers
+  # each cell/feature participates in. After initial creation, we register
+  # the "counts" layer. Each subsequent pipeline step that adds a new layer
+  # (e.g., "data" after NormalizeData) must call .add_layer_to_maps() to
+  # keep the LogMaps in sync. Failure to do so causes Seurat's internal
+  # validation to reject the object.
   assay_obj@cells <- .add_layer_to_logmap(assay_obj@cells, "counts")
   assay_obj@features <- .add_layer_to_logmap(assay_obj@features, "counts")
 

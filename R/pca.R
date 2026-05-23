@@ -71,6 +71,10 @@ RunPCA.scLeanAssay <- function(
   }
 
   if (is.null(features)) {
+    # Feature resolution chain:
+    # 1. Try VariableFeatures(object) on the Seurat object
+    # 2. Fall back to VariableFeatures(sc_assay) if the first returned empty
+    # 3. If both fail, feature_indices stays empty — C++ runs PCA on all genes
     if (inherits(object, "Seurat")) {
       features <- tryCatch(SeuratObject::VariableFeatures(object), error = function(e) character(0))
     }
@@ -82,6 +86,8 @@ RunPCA.scLeanAssay <- function(
   feature_indices <- integer(0)
   if (length(features) > 0) {
     all_genes <- read_strings_from_hdf5(sc_assay@hdf5_path, "/features/names")
+    # Index conversion: R is 1-based, C++ is 0-based.
+    # which() returns 1-based indices; subtract 1L for C++ interop.
     feature_indices <- as.integer(which(all_genes %in% features) - 1L)
   }
 
@@ -94,7 +100,11 @@ RunPCA.scLeanAssay <- function(
     feature_indices = feature_indices
   )
 
-  # Read PCA results and add as DimReduc
+  # Read PCA results and add as DimReduc.
+  # Embeddings and loadings are always fully read into memory after computation.
+  # This is because Seurat's CreateDimReducObject requires in-memory matrices.
+  # For 500K cells × 30 PCs, the embedding matrix alone is ~120 MB — this is
+  # the primary in-memory cost of RunPCA.
   embeddings <- read_dense_matrix(
     sc_assay@hdf5_path,
     paste0(sc_assay@hdf5_group, "/reductions/pca/embeddings")

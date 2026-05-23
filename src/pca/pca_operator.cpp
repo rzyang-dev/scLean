@@ -21,6 +21,23 @@ PCAOperator::PCAOperator(int npcs, bool center, bool scale,
 
 // ============================================================
 // Lanczos Bidiagonalization
+//
+// Implements implicit restarted Lanczos bidiagonalization (IRLBA).
+// The algorithm builds a k×k bidiagonal matrix B such that A ≈ U * B * V^T.
+//
+// Initialization:
+//   - Random start vector p ~ N(0,1) with fixed seed=42 for reproducibility.
+//     Reproducibility matters because PCA sign flips between runs confuse users.
+//   - First Lanczos vector: u_1 = A*p / ||A*p||.
+//
+// On-the-fly centering (do_otf):
+//   When means/sds != nullptr, each matvec applies:
+//     u[i] = (A*p)[i] / sigma[i] - mu[i]/sigma[i] * sum(p)
+//   This avoids materializing the full (genes × cells) scaled matrix on disk.
+//   Zero-variance genes (sds[i] <= 0) contribute zero rows after centering.
+//
+// Iteration count: Lanczos steps = npcs + 10 (for accuracy), capped at
+// min(n_genes, n_cells) to avoid over-iteration on wide/short matrices.
 // ============================================================
 
 void PCAOperator::lanczos_bidiag(
@@ -192,6 +209,13 @@ PCAResult PCAOperator::run(
 
     // For very small matrices, just do dense PCA via Eigen.
     // Centering is done in-memory here; means/sds are ignored for this path.
+    //
+    // Threshold: n_genes <= 2000 && n_cells <= 5000
+    // Rationale: 2000×5000 = 10M doubles ≈ 80 MB fits comfortably in a single
+    // dense allocation on 8 GB. Above this, we prefer Lanczos to avoid OOM.
+    // The dense SVD path uses BDCSVD (fast for moderate matrices) with the
+    // full matrix read into memory and centered row-wise before SVD.
+    // If the dense allocation fails with bad_alloc, we fall through to Lanczos.
     if (n_genes <= 2000 && n_cells <= 5000) {
         progress.message("Computing PCA on small matrix (dense SVD)...");
         // Read full matrix into memory (with OOM guard)
@@ -257,8 +281,11 @@ PCAResult PCAOperator::run(
         }
     }
 
-    // SVD of bidiagonal B — use JacobiSVD for robustness when BDCSVD may
-    // struggle with near-zero singular values from extremely sparse matrices
+    // SVD of bidiagonal B — prefer BDCSVD for speed, fall back to JacobiSVD
+    // when BDCSVD fails. JacobiSVD is slower but correctly handles near-zero
+    // singular values from rank-deficient or extremely sparse matrices.
+    // NaN/Inf check (above): extreme sparsity can produce degenerate Lanczos
+    // vectors; when detected we return zero results rather than propagating NaN.
     int actual_npcs;
     if (has_nan) {
         // Degenerate Lanczos: return zero results
@@ -304,8 +331,16 @@ PCAResult PCAOperator::run_on_subset(
     ChunkScheduler& scheduler,
     int n_threads) {
 
-    // Use variable features only
-    // For the MVP, read the subset rows, compute in-memory, then return
+    // Use variable features only — compute PCA restricted to a gene subset.
+    //
+    // If the subset has <= 2000 genes, read them into a dense matrix and
+    // compute full SVD in-memory (fast path). Row-wise centering is applied
+    // in-memory; no on-the-fly centering via means/sds.
+    //
+    // For larger subsets (>2000 genes), fall back to full Lanczos PCA on the
+    // complete matrix passing nullptr for means/sds — subset-restricted Lanczos
+    // with on-the-fly centering is not yet implemented. This is a known
+    // limitation: PCA on large variable-feature subsets always runs on all genes.
     int64 n_subset = static_cast<int64>(feature_indices.size());
     int64 n_cells = matrix->n_cols();
 
