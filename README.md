@@ -1,227 +1,86 @@
-# scLean: Memory-Efficient Single-Cell RNA-seq Analysis
+# scLean — Memory-Efficient Single-Cell Analysis for R (Discontinued)
 
-scLean is an R package that replaces Seurat's core computation with HDF5-backed,
-out-of-core algorithms. It is designed for large single-cell datasets (500K+ cells)
-on machines with limited RAM (8 GB), while maintaining full Seurat compatibility.
+**scLean is no longer actively developed.** Existing installations will continue to
+work, but no further updates, bug fixes, or feature additions are planned. Users are
+encouraged to migrate to [Scanpy](https://scanpy.readthedocs.io/) for new projects.
 
-## How It Works
+## Why This Project Is Being Discontinued
 
-scLean stores all assay data on disk in HDF5 format and reads/writes in adaptive
-chunks. The R API is identical to Seurat — `NormalizeData()`, `ScaleData()`,
-`RunPCA()`, `FindNeighbors()`, `FindClusters()`, `FindMarkers()` all work the
-same way, backed by C++/Eigen operators that stream data from HDF5.
+scLean was an attempt to build a drop-in replacement for Seurat v5 that stores
+assay data on disk (HDF5) instead of in memory, targeting large single-cell datasets
+on machines with limited RAM. After extensive benchmarking against real-world data
+and a detailed assessment of the codebase, several fundamental issues make continued
+development unsustainable:
 
-| Standard Seurat | scLean |
-|:----------------|:-------|
-| All data in RAM as `dgCMatrix` | Data on disk in HDF5, chunked access |
-| `Assay5` with in-memory layers | `scLeanAssay` with `HDF5BackedMatrix` layers |
-| C++/Eigen in-memory operations | C++/Eigen out-of-core operations |
+### 1. HDF5-backed CSC access has inherent I/O bottlenecks that can't be cheaply fixed
+
+scRNA-seq pipelines are naturally row-oriented (genes are the unit of differential
+expression). Reading rows from a CSC sparse matrix on HDF5 requires a binary search
+over column pointers for every non-zero entry (`src/hdf5/hdf5_csc_read.cpp:146-167`).
+This adds O(nnz × log n_cols) overhead per chunk, which becomes the dominant cost
+as cell count grows. Materializing CSR row pointers in memory would work, but defeats
+the purpose of disk backing by doubling the memory footprint.
+
+### 2. Performance on large-scale data does not beat established alternatives
+
+| Data Scale | scLean | Seurat (with sketch) | Scanpy (in-memory) | Scanpy (backed) |
+|-----------:|--------|----------------------|--------------------|--------------------|
+| <10K cells | Fine, but overkill | Fine, few seconds | Fine, few seconds | Fine |
+| 10K-30K cells | Works, ~200s pipeline | Works, similar time | Faster | Comparable |
+| 100K+ cells | Very slow (hours) | Use sketch/subsample | Needs HPC | Comparable or better |
+| 500K+ cells | Impractical | Not possible | Not possible | Possible with out-of-core |
+
+The 500K+ cells on 8 GB claim in earlier versions was aspirational. While memory
+usage is indeed bounded by the 128 MB chunk cap, wall-clock time degrades severely
+due to I/O amplification—chunk count grows linearly with cell count and so does
+the binary-search overhead. A full pipeline on 500K cells would take 8-12 hours
+on consumer hardware, which is not practical for iterative analysis.
+
+### 3. The codebase has reached a complexity level that is hard to maintain alone
+
+Multi-language codebases (R + C++ + HDF5 C API + Eigen) with tight coupling through
+S3 dispatch, Rcpp, and an HDF5 schema contract have high maintenance costs. The
+current test suite is thin, CI covers only smoke tests, and real-data validation
+has surfaced bugs that require deep changes to the C++ layer to fix properly.
+
+### 4. Scanpy is the better choice for most users
+
+Scanpy offers:
+- A mature, well-maintained Python ecosystem with thousands of contributors
+- Out-of-core (backed) mode via AnnData's HDF5 layer that handles large data well
+- A much larger community for troubleshooting and support
+- Active development with regular releases, comprehensive documentation, and tutorials
+- No system dependency headaches (no need for HDF5 system libraries or C++ compilers)
+
+For R users who prefer to stay in R, consider [BPCells](https://github.com/bnprks/BPCells),
+which is more mature than scLean and addresses similar memory constraints.
+
+## What Still Works
+
+If you already have scLean installed and are using it on modest datasets (<30K cells),
+the core pipeline (LoadScleanObject → NormalizeData → ScaleData → RunPCA →
+FindNeighbors → FindClusters) functions correctly on macOS and Linux. Known issues
+are documented in [KNOWN-ISSUES.md](KNOWN-ISSUES.md). No fixes are forthcoming.
 
 ## System Requirements
 
-- **R** >= 4.0
-- **HDF5** >= 1.10.0 (system library)
+- R >= 4.0
+- HDF5 >= 1.10.0 (system library)
 - C++17 compiler
 - macOS / Linux (Windows untested)
 
-## Installation
+## Installation (from source, last working commit)
 
 ```r
-# From source
-install.packages("remotes")
-remotes::install_local("path/to/scLean")
+# First-time setup
+./cleanup && ./configure
 
-# Dependencies are installed automatically:
-# Rcpp, RcppEigen, Rhdf5lib, SeuratObject (>= 5.0), Seurat (>= 5.0), Matrix (>= 1.6)
+# Regenerate Rcpp bindings if needed
+Rscript -e 'Rcpp::compileAttributes()'
+
+# Build and install
+R CMD INSTALL .
 ```
-
-## Quick Start
-
-```r
-library(scLean)
-library(Seurat)
-
-# Load 10X data into scLean (disk-backed)
-obj <- LoadScleanObject("path/to/10x/filtered_feature_bc_matrix")
-
-# Standard Seurat pipeline — all computation is HDF5-backed
-obj <- NormalizeData(obj, normalization.method = "LogNormalize")
-obj <- FindVariableFeatures(obj, nfeatures = 2000)
-obj <- ScaleData(obj)
-obj <- RunPCA(obj, npcs = 30)
-obj <- FindNeighbors(obj, dims = 1:30)
-obj <- FindClusters(obj, resolution = 0.8)
-obj <- RunUMAP(obj, dims = 1:30)    # Uses Seurat's UMAP, data read from HDF5
-
-# Find markers (disk-backed)
-markers <- FindMarkers(obj, ident.1 = "1", ident.2 = "2")
-```
-
-## API Overview
-
-| Group | Key Functions | Description |
-|:------|:--------------|:------------|
-| **Data I/O** | `LoadScleanObject`, `as.scLean`, `as.Seurat.scLean` | Load 10X/HDF5/Matrix data; convert between Seurat and scLean |
-| **Pipeline** | `NormalizeData`, `ScaleData`, `FindVariableFeatures`, `RunPCA`, `FindNeighbors`, `FindClusters` | Standard Seurat workflow, disk-backed |
-| **Markers** | `FindMarkers`, `FindAllMarkers` | Differential expression with Wilcoxon, t-test, or logistic regression |
-| **Integration** | `IntegrateData.scLean` | MNN-based batch correction with Gaussian kernel smoothing |
-| **Resources** | `SetChunkSize`, `SetMaxRAM`, `SetThreads`, `MemoryReport`, `CheckResources`, `PerformanceSnapshot` | Adaptive chunk sizing, memory limits, parallelism, monitoring |
-
-See `vignette("reference", package = "scLean")` for the complete function reference.
-
-## Memory Management
-
-```r
-# Set chunk size (auto by default, adapts to available RAM)
-SetChunkSize(obj, 5000)
-
-# Limit RAM usage
-SetMaxRAM(4096)  # 4 GB
-
-# Control parallelism (default: single-threaded)
-SetThreads(4)
-
-# See current memory and resource usage
-MemoryReport(obj)
-
-# Monitor system resource pressure
-CheckResources()
-
-# Force garbage collection between pipeline steps
-RefreshMemory()
-
-# Quick RSS + wall-time snapshot
-PerformanceSnapshot()
-
-# Restore auto chunk sizing
-SetChunkSize(obj, NA)
-```
-
-## Resource Monitoring
-
-scLean includes an intelligent resource scheduler that:
-
-- Samples free RAM (not total) at runtime
-- Detects memory pressure, CPU pressure, and classifies bottlenecks
-- Automatically switches between dense/sparse code paths based on available memory
-- Shrinks chunk sizes and retries on OOM with 3-level degradation
-- Caps dense read buffers at 128 MB to prevent memory spikes
-- Adjusts thread count based on system load
-
-Use `MemoryReport()` and `CheckResources()` between pipeline steps
-for early warning of resource constraints.
-
-## Benchmarks
-
-The table below compares scLean against standard Seurat on a synthetic dataset
-(20,000 genes x 50,000 cells, LogNormalize + PCA + clustering pipeline) run on a MacBook neo (8 GB RAM). Actual results vary by hardware, data sparsity, and
-chunk configuration.
-
-| Step | Standard Seurat | scLean (auto chunk) | scLean (chunk=5000) |
-|:-----|:----------------|:--------------------|:--------------------|
-| **Memory peak** | ~5.2 GB | ~0.8 GB | ~1.4 GB |
-| NormalizeData | 12.3 s | 14.1 s | 13.2 s |
-| FindVariableFeatures | 8.7 s | 10.2 s | 9.5 s |
-| ScaleData | 22.1 s | 25.8 s | 24.0 s |
-| RunPCA (30 PCs) | 35.4 s | 38.9 s | 37.1 s |
-| FindNeighbors | 15.2 s | 17.0 s | 16.3 s |
-| FindClusters | 8.9 s | 9.8 s | 9.4 s |
-| **Total wall time** | **102.6 s** | **115.8 s** | **109.5 s** |
-
-scLean trades a modest runtime overhead (~10-15%) for dramatically lower memory
-usage, enabling analysis of datasets that would otherwise require 32+ GB machines.
-
-## Converting Existing Seurat Objects
-
-```r
-# Convert an in-memory Seurat object to disk-backed
-obj <- as.scLean(seurat_obj, hdf5_path = "data.h5")
-
-# Convert back to in-memory (e.g., for saving as .rds)
-obj <- as.Seurat.scLean(obj, layers = "data")
-
-# Save/load the disk-backed object
-saveRDS(obj, file = "sclean_obj.rds")  # Small: only metadata + HDF5 path
-```
-
-## Package Structure
-
-```
-src/
-  core/         Common interfaces: PipelineOperator, DataSource, DiskMatrix
-  hdf5/         HDF5 file I/O, CSC/dense matrix wrappers, streaming writer
-  normalize/    LogNormalize, CLR, RelativeCounts (+ VST feature selection)
-  scale/        Centering and scaling (Welford algorithm)
-  pca/          IRLBA-based PCA with Lanczos bidiagonalization
-  neighbors/    KNN/SNN graph construction and Louvain/Leiden clustering
-  markers/      Wilcoxon/t-test/logistic regression differential expression
-  integration/  MNN-based batch correction with Gaussian kernel smoothing
-  io/           Streaming 10X MTX directory parser
-  utils/        Chunk scheduler, resource monitor, thread governor, progress
-R/
-  generics.R          S3 generics re-exported from Seurat/SeuratObject
-  dispatch-helpers.R  Shared dispatch helpers (extract_sc_assay, resolve_chunk_size)
-  normalize.R         NormalizeData.scLeanAssay
-  scale.R             ScaleData.scLeanAssay
-  vst.R               FindVariableFeatures.scLeanAssay
-  pca.R               RunPCA.Seurat → RunPCA.scLeanAssay
-  neighbors.R         FindNeighbors.Seurat → FindNeighbors.scLeanAssay
-  clustering.R        FindClusters.Seurat → FindClusters.scLeanAssay
-  markers.R           FindMarkers / FindAllMarkers
-  integration.R       IntegrateData.scLean
-  sclean-class.R      scLeanAssay S4 class + LogMap helpers
-  hdf5-matrix.R       HDF5BackedMatrix R6 proxy class
-  io-load.R           LoadScleanObject (main entry point)
-  io-10x.R            10X Genomics streaming import
-  io-convert.R        as.scLean / as.Seurat.scLean
-  io-assay.R          CreateSCleanAssayFromHDF5
-  chunk-control.R     SetChunkSize, SetMaxRAM, SetThreads, MemoryReport
-```
-
-## FAQ
-
-### Why do I get "HDF5 file not found"?
-
-scLean objects store only the **path** to the HDF5 file, not the data itself. If you
-move or delete the `.h5` file, or load an `.rds` on a different machine where the
-path doesn't exist, the object can't find its data. Keep the `.h5` file alongside
-your `.rds`, or use `as.Seurat.scLean()` to materialize to memory first.
-
-### How do I choose chunk size?
-
-The default (auto) mode adapts chunk size to available free RAM at runtime. You
-usually don't need to set it manually. If you have unusually small or large RAM,
-use `SetChunkSize(obj, N)` to fix the cells-per-chunk. Use `MemoryReport(obj)` to
-see the current effective chunk size. Restore auto mode with `SetChunkSize(obj, NA)`.
-
-### Can I use scLean alongside regular Seurat objects?
-
-Yes. scLean objects are standard Seurat objects with `scLeanAssay` assays. You can
-mix disk-backed and in-memory assays in the same object, run scLean pipeline steps
-on large datasets while using standard Seurat for smaller ones, and use all Seurat
-visualization functions (`DimPlot`, `FeaturePlot`, `VlnPlot`, etc.).
-
-### What happens when memory runs out?
-
-scLean has a 3-level OOM recovery strategy:
-1. **Dense → sparse path**: switches to memory-efficient sparse algorithms
-2. **Shrink chunk**: halves the chunk size and retries
-3. **Retry**: up to 3 attempts with progressively smaller chunks
-
-If all levels fail, the operation stops with a clear error message. Use
-`CheckResources()` between steps to catch pressure before it becomes an OOM.
-
-### Does scLean support SCTransform or Harmony?
-
-Not currently. scLean implements LogNormalize, CLR, and RelativeCounts normalization,
-and MNN-based batch correction via `IntegrateData.scLean()`. SCTransform and Harmony
-integration are on the roadmap but not yet implemented.
-
-## Vignette Cross-References
-
-- `vignette("sclean", package = "scLean")` — step-by-step tutorial with timing output
-- `vignette("reference", package = "scLean")` — API cheat sheet with all functions
-- `help(package = "scLean")` — complete function reference
 
 ## License
 
