@@ -21,8 +21,8 @@
 #' obj <- NormalizeData(obj)
 #' obj <- NormalizeData(obj, normalization.method = "CLR")
 #' }
-#' @seealso \code{\link{ScaleData.scLeanAssay}},
-#'   \code{\link{FindVariableFeatures.scLeanAssay}}
+#' @seealso \code{\link{ScaleData.Seurat}},
+#'   \code{\link{FindVariableFeatures.Seurat}}
 #' @export
 NormalizeData.Seurat <- function(
     object,

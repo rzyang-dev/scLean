@@ -25,7 +25,7 @@ fi
 # Find all .cpp files in subdirectories (R only auto-compiles src/*.cpp)
 SUBDIR_SOURCES=`find src -mindepth 2 -name '*.cpp' 2>/dev/null`
 SUBDIR_OBJECTS=`echo "$SUBDIR_SOURCES" | sed 's|^src/||; s|\.cpp$|.o|' | tr '\n' ' '`
-TOP_OBJECTS="rcpp_exports.o RcppExports.o"
+TOP_OBJECTS="rcpp_io.o rcpp_pipeline.o rcpp_perf.o RcppExports.o"
 ALL_OBJECTS="${TOP_OBJECTS} ${SUBDIR_OBJECTS}"
 
 cat > src/Makevars.win << EOF

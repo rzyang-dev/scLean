@@ -47,6 +47,8 @@ LoadScleanObject <- function(
       stop("HDF5 file not found: ", input)
     }
   } else if (inherits(input, "dgCMatrix") || is.matrix(input)) {
+    gene_names <- rownames(input) %||% paste0("gene", seq_len(nrow(input)))
+    cell_names <- colnames(input) %||% paste0("cell", seq_len(ncol(input)))
     assay_obj <- CreateSCleanAssay(input, hdf5_path = hdf5_path, assay = assay)
   } else {
     stop("Unsupported input type: ", class(input)[1])

@@ -86,6 +86,9 @@ private:
 
     static double op_multiplier(OperationType op);
     static ChunkAxis op_axis(OperationType op);
+
+public:
+    static int64 max_dense_chunk_bytes_;   // default = 128 MB (MAX_DENSE_CHUNK_BYTES)
 };
 
 // Max dense chunk bytes: settable from R option

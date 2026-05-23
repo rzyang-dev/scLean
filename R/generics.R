@@ -35,5 +35,6 @@ Seurat::FindMarkers
 Seurat::FindAllMarkers
 
 #' @importFrom SeuratObject VariableFeatures
+#' @importFrom SeuratObject VariableFeatures<-
 #' @export
 SeuratObject::VariableFeatures

@@ -7,8 +7,8 @@
 SetThreads(n = NULL)
 }
 \arguments{
-\item{n}{Number of threads (default: detected core count). Pass NULL to
-restore the default single-threaded mode.}
+\item{n}{Number of threads. Use 0 to auto-detect (physical cores).
+Pass NULL to restore the default single-threaded mode.}
 }
 \value{
 The thread count, invisibly (NULL if threads were unset)
@@ -20,7 +20,8 @@ Affects per-thread HDF5 read handles; writes are always serialized.
 }
 \examples{
 SetThreads(2)
-SetThreads()  # restore default single-threaded mode
+SetThreads(0)  # auto-detect
+SetThreads()   # restore default single-threaded mode
 }
 \seealso{
 \code{\link{SetChunkSize}}, \code{\link{SetMaxRAM}}

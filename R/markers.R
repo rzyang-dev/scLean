@@ -12,6 +12,7 @@
 #' @param logfc.threshold  Minimum log2 fold change (default: 0.25)
 #' @param min.pct  Minimum fraction of cells expressing the gene (default: 0.1)
 #' @param ...  Additional arguments
+#' @importFrom stats setNames
 #' @usage
 #' \method{FindMarkers}{Seurat}(object, ident.1, ident.2 = NULL,
 #'   test.use = "wilcox", logfc.threshold = 0.25, min.pct = 0.1, ...)
@@ -27,7 +28,8 @@
 #' obj <- RunPCA(obj, npcs = 10)
 #' obj <- FindNeighbors(obj, dims = 1:10)
 #' obj <- FindClusters(obj, resolution = 0.5)
-#' markers <- FindMarkers(obj, ident.1 = "1", ident.2 = "2")
+#' idents <- levels(SeuratObject::Idents(obj))
+#' markers <- FindMarkers(obj, ident.1 = idents[1], ident.2 = NULL)
 #' head(markers)
 #' }
 #' @seealso \code{\link{FindAllMarkers.scLeanAssay}}
@@ -160,6 +162,7 @@ FindAllMarkers.scLeanAssay <- function(
 }
 
 #' @export
+#' @rdname FindAllMarkers.scLeanAssay
 FindAllMarkers.Seurat <- function(
     object,
     test.use = "wilcox",

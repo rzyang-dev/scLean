@@ -129,17 +129,26 @@ DimPlot(obj, reduction = "umap", label = TRUE)
 
 ```{r markers}
 t0 <- PerformanceSnapshot()
-markers <- FindMarkers(obj, ident.1 = "1", ident.2 = "2")
-t1 <- PerformanceSnapshot()
-cat(sprintf("FindMarkers: %.2f seconds, %d significant genes\n",
-  (t1$wall_time_ns - t0$wall_time_ns) / 1e9,
-  nrow(markers)))
-head(markers[order(markers$p_val_adj), ], n = 6)
+id_list <- levels(SeuratObject::Idents(obj))
+if (length(id_list) >= 2) {
+  markers <- FindMarkers(obj, ident.1 = id_list[1], ident.2 = id_list[2])
+  t1 <- PerformanceSnapshot()
+  cat(sprintf("FindMarkers: %.2f seconds, %d significant genes\n",
+    (t1$wall_time_ns - t0$wall_time_ns) / 1e9,
+    nrow(markers)))
+  head(markers[order(markers$p_val_adj), ], n = 6)
+} else {
+  cat("Need >= 2 clusters for marker comparison (found ", length(id_list), ")\n")
+}
 ```
 
 ```{r all-markers}
-all_markers <- FindAllMarkers(obj)
-names(all_markers)
+if (length(id_list) >= 2) {
+  all_markers <- FindAllMarkers(obj)
+  names(all_markers)
+} else {
+  cat("Need >= 2 clusters for FindAllMarkers\n")
+}
 ```
 
 ## Integration

@@ -105,6 +105,13 @@ HDF5File& HDF5File::operator=(HDF5File&& other) noexcept {
 hid_t HDF5File::open_thread_handle(FileMode mode) {
     // Read-only threads can share handles; writes need exclusive access
     if (mode == FileMode::ReadOnly) {
+        // Per-thread cache of read-only HDF5 file handles. Each OpenMP thread
+        // opens its own handle to avoid internal HDF5 library lock contention
+        // during parallel reads. The cache is thread_local so each thread reuses
+        // its handle across operations. Handles are cleaned up by
+        // close_thread_handles() on destruction. This is a performance
+        // optimization — if HDF5 is built without --enable-threadsafe, only
+        // the main thread handle is active.
         static thread_local std::unordered_map<std::string, hid_t> cache;
         std::string key = path_ + ":r";
         auto it = cache.find(key);

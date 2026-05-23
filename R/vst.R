@@ -20,8 +20,8 @@
 #' obj <- FindVariableFeatures(obj, nfeatures = 100)
 #' head(VariableFeatures(obj))
 #' }
-#' @seealso \code{\link{NormalizeData.scLeanAssay}},
-#'   \code{\link{ScaleData.scLeanAssay}}
+#' @seealso \code{\link{NormalizeData.Seurat}},
+#'   \code{\link{ScaleData.Seurat}}
 #' @export
 FindVariableFeatures.Seurat <- function(
     object,

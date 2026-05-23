@@ -15,6 +15,12 @@ namespace sclean {
 // Global thread count, settable from R via SetThreads().
 // Default 1: safe for HDF5 builds without --enable-threadsafe.
 // Users with thread-safe HDF5 can increase via SetThreads(n).
+//
+// Global thread count, configurable from R via SetThreads().
+// Passed as an explicit parameter to all pipeline functions and operators,
+// avoiding hidden global state. Kept as a global because it is set once
+// per session (not per-operation), changes rarely, and threading it through
+// every internal call chain would add friction with no benefit.
 inline int64 g_num_threads = 1;
 
 inline int64 get_num_threads() {

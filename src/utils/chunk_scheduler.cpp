@@ -8,6 +8,9 @@
 
 namespace sclean {
 
+// Static member initialization
+int64 ChunkScheduler::max_dense_chunk_bytes_ = MAX_DENSE_CHUNK_BYTES;
+
 // --- Operation multipliers ---
 //
 // Each multiplier M represents the peak temporary-memory-to-read-buffer ratio.
@@ -228,16 +231,12 @@ static ChunkConfig schedule_impl(int64 R, int64 C, ChunkAxis axis,
 
 // --- Max dense chunk bytes (from R option or default) ---
 
-namespace {
-    int64 g_max_dense_bytes = MAX_DENSE_CHUNK_BYTES;
-}
-
 void set_max_dense_chunk_bytes(int64 bytes) {
-    if (bytes > 0) g_max_dense_bytes = bytes;
+    if (bytes > 0) ChunkScheduler::max_dense_chunk_bytes_ = bytes;
 }
 
 int64 get_max_dense_chunk_bytes() {
-    return g_max_dense_bytes;
+    return ChunkScheduler::max_dense_chunk_bytes_;
 }
 
 // --- schedule() implementations ---
@@ -270,7 +269,7 @@ ChunkConfig ChunkScheduler::schedule(
 
     ChunkConfig cfg = schedule_impl(matrix.n_rows(), matrix.n_cols(),
                                      axis, M, B, adjusted_threads, extra_total,
-                                     chunk_override_, g_max_dense_bytes);
+                                     chunk_override_, max_dense_chunk_bytes_);
 
     // Bottleneck-driven adjustments
     if (last_bottleneck_ == Bottleneck::MemoryBound ||
@@ -327,7 +326,7 @@ ChunkConfig ChunkScheduler::schedule(
     ChunkConfig cfg = schedule_impl(n_rows, n_cols, op_axis(op_type),
                                      op_multiplier(op_type), B,
                                      adjusted_threads, extra_total,
-                                     chunk_override_, g_max_dense_bytes);
+                                     chunk_override_, max_dense_chunk_bytes_);
 
     // Bottleneck-driven adjustments
     if (last_bottleneck_ == Bottleneck::MemoryBound ||

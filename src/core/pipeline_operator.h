@@ -1,6 +1,17 @@
 #ifndef SCLEAN_PIPELINE_OPERATOR_H
 #define SCLEAN_PIPELINE_OPERATOR_H
 
+// Common interface for pipeline stages that operate on a DataSource.
+// HDF5-backed operators (Normalize, VST, Scale, PCA, Marker, Cluster)
+// are candidates to implement this interface. In-memory operators
+// (NeighborOperator, IntegrationOperator) operate on in-memory Eigen
+// matrices and do NOT use this interface — they remain pure-compute
+// classes with their own run() signatures.
+//
+// The DataSource abstraction centralizes HDF5 path knowledge so that
+// operators request data by logical name ("counts", "data") rather
+// than by hardcoded filesystem paths.
+
 #include <string>
 
 namespace sclean {

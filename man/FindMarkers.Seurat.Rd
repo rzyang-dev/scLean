@@ -42,7 +42,8 @@ obj <- ScaleData(obj)
 obj <- RunPCA(obj, npcs = 10)
 obj <- FindNeighbors(obj, dims = 1:10)
 obj <- FindClusters(obj, resolution = 0.5)
-markers <- FindMarkers(obj, ident.1 = "1", ident.2 = "2")
+idents <- levels(SeuratObject::Idents(obj))
+markers <- FindMarkers(obj, ident.1 = idents[1], ident.2 = NULL)
 head(markers)
 }
 }

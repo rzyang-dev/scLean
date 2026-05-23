@@ -8,6 +8,7 @@
 #include "hdf5/hdf5_file.h"
 #include "hdf5/hdf5_csc_matrix.h"
 #include "hdf5/hdf5_dense_matrix.h"
+#include "hdf5/hdf5_data_source.h"
 #include "normalize/normalize_operator.h"
 #include "scale/scale_operator.h"
 #include "normalize/vst_operator.h"
@@ -50,17 +51,18 @@ List cpp_normalize(std::string hdf5_path, std::string assay_group,
     int64 rss0 = sclean::current_rss_bytes();
 
     HDF5File file(hdf5_path, FileMode::ReadWrite);
+    HDF5DataSource ds(&file, assay_group);
     auto scheduler = make_scheduler();
     if (chunk_size > 0) scheduler.set_chunk_size(chunk_size);
-    std::string input_group = assay_group + "/layers/counts";
-    std::string output_group = assay_group + "/layers/data";
+    std::string input_group = ds.layer_path("counts");
+    std::string output_group = ds.layer_path("data");
     NormalizeOperator op(static_cast<NormalizeMethod>(method), scale_factor);
     // HDF5-backed read ops need --enable-threadsafe for multi-threading
     int n_threads = get_num_threads();
     NormalizeResult res = op.run(&file, input_group, output_group, scheduler, n_threads);
 
     // Write size factors to file
-    file.write_vector_double(assay_group + "/layers/data/size_factors",
+    file.write_vector_double(ds.layer_subpath("data", "size_factors"),
                               res.size_factors);
 
     int64 t1 = sclean::wall_time_ns();
@@ -85,10 +87,11 @@ List cpp_scale(std::string hdf5_path, std::string assay_group,
     int64 rss0 = sclean::current_rss_bytes();
 
     HDF5File file(hdf5_path, FileMode::ReadWrite);
+    HDF5DataSource ds(&file, assay_group);
     auto scheduler = make_scheduler();
     if (chunk_size > 0) scheduler.set_chunk_size(chunk_size);
 
-    std::string input_group = assay_group + "/layers/data";
+    std::string input_group = ds.layer_path("data");
 
     ScaleOperator op(do_scale, do_center);
     // Only compute mean/sd — don't materialize scale.data on disk.
@@ -102,9 +105,9 @@ List cpp_scale(std::string hdf5_path, std::string assay_group,
                                        scheduler, n_threads);
 
     // Write gene means/SDs as per-gene metadata (tiny: ~16 bytes/gene)
-    file.write_vector_double(assay_group + "/features/residual_mean",
+    file.write_vector_double(ds.feature_vector_path("residual_mean"),
                               res.gene_means);
-    file.write_vector_double(assay_group + "/features/residual_sd",
+    file.write_vector_double(ds.feature_vector_path("residual_sd"),
                               res.gene_sds);
 
     int64 t1 = sclean::wall_time_ns();
@@ -125,27 +128,28 @@ List cpp_scale(std::string hdf5_path, std::string assay_group,
 // [[Rcpp::export]]
 List cpp_vst(std::string hdf5_path, std::string assay_group, int n_top) {
     HDF5File file(hdf5_path, FileMode::ReadWrite);
+    HDF5DataSource ds(&file, assay_group);
     auto scheduler = make_scheduler();
 
-    auto mat = file.open_csc_matrix(assay_group + "/layers/counts");
+    auto mat = file.open_csc_matrix(ds.layer_path("counts"));
     int64 n_genes = mat->n_rows();
     int64 n_cells = mat->n_cols();
 
     VSTOperator op(n_top);
     // HDF5-backed read ops need --enable-threadsafe for multi-threading
     int n_threads = get_num_threads();
-    VSTResult res = op.run(&file, assay_group + "/layers/counts",
+    VSTResult res = op.run(&file, ds.layer_path("counts"),
                              n_genes, n_cells, scheduler, n_threads);
 
     // Write results to HDF5
-    file.write_vector_double(assay_group + "/features/mean", res.gene_means);
-    file.write_vector_double(assay_group + "/features/variance", res.gene_variances);
-    file.write_vector_double(assay_group + "/features/vst_mean", {}); // placeholder
-    file.write_vector_double(assay_group + "/features/vst_variance", res.vst_variances);
+    file.write_vector_double(ds.feature_vector_path("mean"), res.gene_means);
+    file.write_vector_double(ds.feature_vector_path("variance"), res.gene_variances);
+    file.write_vector_double(ds.feature_vector_path("vst_mean"), {}); // placeholder
+    file.write_vector_double(ds.feature_vector_path("vst_variance"), res.vst_variances);
 
     std::vector<int32> var_int;
     for (auto v : res.variable_features) var_int.push_back(v ? 1 : 0);
-    file.write_vector_int32(assay_group + "/features/variable", var_int);
+    file.write_vector_int32(ds.feature_vector_path("variable"), var_int);
 
     return List::create(
         _["n_variable"] = res.n_variable
@@ -161,6 +165,7 @@ List cpp_pca(std::string hdf5_path, std::string assay_group,
     int64 rss0 = sclean::current_rss_bytes();
 
     HDF5File file(hdf5_path, FileMode::ReadWrite);
+    HDF5DataSource ds(&file, assay_group);
     auto scheduler = make_scheduler();
 
     // Determine input data and whether to use on-the-fly centering.
@@ -170,20 +175,20 @@ List cpp_pca(std::string hdf5_path, std::string assay_group,
     const double* p_means = nullptr;
     const double* p_sds = nullptr;
 
-    std::string mean_path = assay_group + "/features/residual_mean";
-    std::string sd_path   = assay_group + "/features/residual_sd";
+    std::string mean_path = ds.feature_vector_path("residual_mean");
+    std::string sd_path   = ds.feature_vector_path("residual_sd");
 
     if (file.exists(mean_path) && file.exists(sd_path)) {
         means = file.read_vector_double(mean_path);
         sds   = file.read_vector_double(sd_path);
         p_means = means.data();
         p_sds   = sds.data();
-        input_group = assay_group + "/layers/data";
-    } else if (file.exists(assay_group + "/layers/scale.data")) {
+        input_group = ds.layer_path("data");
+    } else if (file.exists(ds.layer_path("scale.data"))) {
         // Legacy: pre-centered scale.data (no on-the-fly centering needed)
-        input_group = assay_group + "/layers/scale.data";
+        input_group = ds.layer_path("scale.data");
     } else {
-        input_group = assay_group + "/layers/data";
+        input_group = ds.layer_path("data");
     }
 
     auto mat = file.open_csc_matrix(input_group);
@@ -211,15 +216,14 @@ List cpp_pca(std::string hdf5_path, std::string assay_group,
     }
 
     // Write PCA results to HDF5
-    std::string pca_group = assay_group + "/reductions/pca";
-    file.create_group(pca_group);
+    file.create_group(ds.reduction_path("pca"));
 
     // Write loadings as dense matrix
     {
         std::vector<double> ld(res.loadings.rows() * res.loadings.cols());
         Eigen::Map<Eigen::MatrixXd>(ld.data(), res.loadings.rows(),
                                      res.loadings.cols()) = res.loadings;
-        file.create_dense_dataset(pca_group + "/loadings",
+        file.create_dense_dataset(ds.reduction_subpath("pca", "loadings"),
                                    res.loadings.rows(),
                                    res.loadings.cols())->write_full(ld.data());
     }
@@ -229,7 +233,7 @@ List cpp_pca(std::string hdf5_path, std::string assay_group,
         std::vector<double> emb(res.embeddings.rows() * res.embeddings.cols());
         Eigen::Map<Eigen::MatrixXd>(emb.data(), res.embeddings.rows(),
                                      res.embeddings.cols()) = res.embeddings;
-        file.create_dense_dataset(pca_group + "/embeddings",
+        file.create_dense_dataset(ds.reduction_subpath("pca", "embeddings"),
                                    res.embeddings.rows(),
                                    res.embeddings.cols())->write_full(emb.data());
     }
@@ -237,9 +241,9 @@ List cpp_pca(std::string hdf5_path, std::string assay_group,
     // Write stdev
     std::vector<double> stdev_vec(res.stdev.data(),
                                    res.stdev.data() + res.stdev.size());
-    file.write_vector_double(pca_group + "/stdev", stdev_vec);
+    file.write_vector_double(ds.reduction_subpath("pca", "stdev"), stdev_vec);
 
-    file.set_attr_double(pca_group, "total_variance", res.total_variance);
+    file.set_attr_double(ds.reduction_path("pca"), "total_variance", res.total_variance);
 
     int64 t1 = sclean::wall_time_ns();
     int64 rss1 = sclean::current_rss_bytes();
@@ -265,6 +269,7 @@ void cpp_find_neighbors(NumericMatrix embeddings, int k,
     int64 rss0 = sclean::current_rss_bytes();
 
     HDF5File file(hdf5_path, FileMode::ReadWrite);
+    HDF5DataSource ds(&file, assay_group);
 
     int n_cells = embeddings.nrow();
     int dims = embeddings.ncol();
@@ -288,7 +293,7 @@ void cpp_find_neighbors(NumericMatrix embeddings, int k,
     op.build_snn(knn, snn_data, snn_indices, snn_indptr, 1.0 / 15.0, get_num_threads());
 
     // Write KNN to HDF5
-    std::string nn_group = assay_group + "/graphs/nn";
+    std::string nn_group = ds.graph_path("nn");
     file.create_group(nn_group);
     file.write_vector_int32(nn_group + "/indices", knn.nn_idx);
     // Convert float to double for HDF5 write
@@ -296,7 +301,7 @@ void cpp_find_neighbors(NumericMatrix embeddings, int k,
     file.write_vector_double(nn_group + "/distances", nn_dists_d);
 
     // Write SNN to HDF5 as CSC
-    std::string snn_group = assay_group + "/graphs/snn";
+    std::string snn_group = ds.graph_path("snn");
     file.create_csc_matrix(snn_group, snn_data, snn_indices, snn_indptr,
                             n_cells, n_cells);
 
@@ -317,8 +322,9 @@ List cpp_find_clusters(std::string hdf5_path, std::string assay_group,
     int64 rss0 = sclean::current_rss_bytes();
 
     HDF5File file(hdf5_path, FileMode::ReadWrite);
+    HDF5DataSource ds(&file, assay_group);
 
-    std::string snn_group = assay_group + "/graphs/snn";
+    std::string snn_group = ds.graph_path("snn");
     if (!file.exists(snn_group)) {
         stop("SNN graph not found. Run FindNeighbors first.");
     }
@@ -334,7 +340,7 @@ List cpp_find_clusters(std::string hdf5_path, std::string assay_group,
 
     // Write cluster assignments
     std::string algo_name = (algorithm == 1) ? "leiden" : "louvain";
-    std::string cluster_path = assay_group + "/clusters/" + algo_name;
+    std::string cluster_path = ds.cluster_path(algo_name);
     file.write_vector_int32(cluster_path, res.assignments);
 
     int64 t1 = sclean::wall_time_ns();
@@ -359,8 +365,9 @@ List cpp_find_markers(std::string hdf5_path, std::string assay_group,
                       std::vector<int> clusters, int ident_1, int ident_2,
                       int test_type, double logfc_threshold, double min_pct) {
     HDF5File file(hdf5_path, FileMode::ReadOnly);
+    HDF5DataSource ds(&file, assay_group);
 
-    std::string data_group = assay_group + "/layers/data";
+    std::string data_group = ds.layer_path("data");
     auto mat = file.open_csc_matrix(data_group);
     int64 n_genes = mat->n_rows();
     int64 n_cells = mat->n_cols();
@@ -404,10 +411,10 @@ void cpp_integrate(std::string hdf5_path, std::string assay_group,
     int64 rss0 = sclean::current_rss_bytes();
 
     HDF5File file(hdf5_path, FileMode::ReadWrite);
+    HDF5DataSource ds(&file, assay_group);
 
     // Read PCA embeddings from HDF5
-    std::string pca_group = assay_group + "/reductions/pca";
-    std::string emb_path = pca_group + "/embeddings";
+    std::string emb_path = ds.reduction_subpath("pca", "embeddings");
 
     if (!file.exists(emb_path)) {
         stop("PCA embeddings not found. Run RunPCA first.");
@@ -429,7 +436,7 @@ void cpp_integrate(std::string hdf5_path, std::string assay_group,
     IntegrationResult res = op.run(embeddings, bl, scheduler);
 
     // Write corrected embeddings to HDF5
-    std::string harmony_group = assay_group + "/reductions/harmony";
+    std::string harmony_group = ds.reduction_path("harmony");
     file.create_group(harmony_group);
 
     std::vector<double> corr_data(
@@ -439,7 +446,7 @@ void cpp_integrate(std::string hdf5_path, std::string assay_group,
                                  res.corrected_embeddings.cols())
         = res.corrected_embeddings;
 
-    file.create_dense_dataset(harmony_group + "/embeddings",
+    file.create_dense_dataset(ds.reduction_subpath("harmony", "embeddings"),
                                res.corrected_embeddings.rows(),
                                res.corrected_embeddings.cols())
         ->write_full(corr_data.data());

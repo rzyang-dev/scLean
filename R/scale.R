@@ -24,7 +24,7 @@
 #' obj <- FindVariableFeatures(obj, nfeatures = 50)
 #' obj <- ScaleData(obj)
 #' }
-#' @seealso \code{\link{NormalizeData.scLeanAssay}},
+#' @seealso \code{\link{NormalizeData.Seurat}},
 #'   \code{\link{RunPCA.Seurat}}
 #' @export
 ScaleData.Seurat <- function(

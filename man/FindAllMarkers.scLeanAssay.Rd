@@ -2,9 +2,18 @@
 % Please edit documentation in R/markers.R
 \name{FindAllMarkers.scLeanAssay}
 \alias{FindAllMarkers.scLeanAssay}
+\alias{FindAllMarkers.Seurat}
 \title{Find all markers (disk-backed)}
 \usage{
 FindAllMarkers.scLeanAssay(
+  object,
+  test.use = "wilcox",
+  logfc.threshold = 0.25,
+  min.pct = 0.1,
+  ...
+)
+
+FindAllMarkers.Seurat(
   object,
   test.use = "wilcox",
   logfc.threshold = 0.25,
